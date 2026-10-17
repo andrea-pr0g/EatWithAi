@@ -13,7 +13,8 @@ Features:
 import os
 import sys
 import json
-from typing import List, Dict, Any, Optional
+import time
+from typing import List, Dict, Any, Optional, Generator
 
 from config import get_gemini_config
 from security import (
@@ -158,22 +159,32 @@ class GeminiRestaurantChatbot:
         is_injection, reason = check_prompt_injection(user_message)
         if is_injection:
             # Deterministically reject hostile inputs without burning API tokens
-            return (
+            refusal = (
                 "I am only able to assist with table reservations, opening hours, "
                 "and dining questions for our restaurant. How can I help you with your booking today?"
             )
+            for word in refusal.split(" "):
+                yield word + " "
+                time.sleep(0.012)
+            return
 
         # --- LAYER 2: Structural Boundary Delimitation ---
         delimited_user_message = wrap_user_message_with_boundary(user_message)
 
-        # --- LAYER 3: LLM Execution with Tools ---
+        # --- LAYER 3: LLM Execution with Real-Time Streaming ---
         if self.sdk_type == "google-genai":
-            return self._run_google_genai(delimited_user_message)
+            yield from self._stream_google_genai(delimited_user_message)
         else:
-            return self._run_legacy_genai(delimited_user_message)
+            yield from self._stream_legacy_genai(delimited_user_message)
 
-    def _run_google_genai(self, delimited_message: str) -> str:
-        """Executes tool-calling conversation with modern google-genai SDK."""
+    def process_message(self, user_message: str) -> str:
+        """
+        Synchronous non-streaming wrapper returning the complete response string.
+        """
+        return "".join(self.process_message_stream(user_message))
+
+    def _stream_google_genai(self, delimited_message: str) -> Generator[str, None, None]:
+        """Streams conversation chunks in real time using google-genai SDK."""
         from google.genai import types
 
         # Package Python functions as tools
@@ -189,7 +200,6 @@ class GeminiRestaurantChatbot:
             chatbot_tools.get_booking_info,
         ]
 
-        # Use client chats with automatic tool calling enabled
         if not hasattr(self, "_chat_session"):
             self._chat_session = self.client.chats.create(
                 model=self.model_name,
@@ -200,11 +210,31 @@ class GeminiRestaurantChatbot:
                 )
             )
 
-        response = self._chat_session.send_message(delimited_message)
-        return response.text or "I have processed your request. How else may I assist you?"
+        # Try native SDK streaming first
+        try:
+            stream_response = self._chat_session.send_message_stream(delimited_message)
+            streamed_tokens = False
+            for chunk in stream_response:
+                text_part = getattr(chunk, "text", "") or ""
+                if text_part:
+                    streamed_tokens = True
+                    yield text_part
+            if streamed_tokens:
+                return
+        except Exception:
+            # If send_message_stream encounters an issue with automatic function calling,
+            # gracefully fall back to send_message and stream smoothly
+            pass
 
-    def _run_legacy_genai(self, delimited_message: str) -> str:
-        """Executes tool-calling conversation with legacy google-generativeai SDK."""
+        # Robust execution fallback with smooth token flow
+        response = self._chat_session.send_message(delimited_message)
+        full_text = response.text or "I have processed your request. How else may I assist you?"
+        for word in full_text.split(" "):
+            yield word + " "
+            time.sleep(0.015)
+
+    def _stream_legacy_genai(self, delimited_message: str) -> Generator[str, None, None]:
+        """Streams conversation chunks with legacy google-generativeai SDK."""
         if not hasattr(self, "_legacy_chat_session"):
             tool_functions = list(AVAILABLE_TOOLS.values())
             model = self.client.GenerativeModel(
@@ -214,12 +244,27 @@ class GeminiRestaurantChatbot:
             )
             self._legacy_chat_session = model.start_chat(enable_automatic_function_calling=True)
 
+        try:
+            response = self._legacy_chat_session.send_message(delimited_message, stream=True)
+            streamed_tokens = False
+            for chunk in response:
+                if chunk.text:
+                    streamed_tokens = True
+                    yield chunk.text
+            if streamed_tokens:
+                return
+        except Exception:
+            pass
+
         response = self._legacy_chat_session.send_message(delimited_message)
-        return response.text or "I have processed your request. How else may I assist you?"
+        full_text = response.text or "I have processed your request. How else may I assist you?"
+        for word in full_text.split(" "):
+            yield word + " "
+            time.sleep(0.015)
 
 
 # ============================================================================
-# Interactive CLI Tester
+# Interactive CLI Tester (Streaming Mode)
 # ============================================================================
 
 def run_cli():
@@ -230,7 +275,7 @@ def run_cli():
     print("  [x] Prompt injection & jailbreak regex pre-filtering")
     print("  [x] Structural message boundary isolation (<untrusted_customer_message>)")
     print("  [x] Explicit confirmation barrier before booking")
-    print("  [x] System prompt leakage defense")
+    print("  [x] Real-time token response streaming")
     print("-" * 65)
     print("Type 'exit' or 'quit' to end the session.\n")
 
@@ -258,7 +303,7 @@ def run_cli():
                 break
         return
 
-    # Live chat loop
+    # Live chat loop with real-time streaming to stdout
     while True:
         try:
             user_input = input("You: ").strip()
@@ -266,8 +311,10 @@ def run_cli():
                 print("\nGoodbye! Have a wonderful day.")
                 break
 
-            reply = bot.process_message(user_input)
-            print(f"\nBot: {reply}\n")
+            print("\nBot: ", end="", flush=True)
+            for chunk in bot.process_message_stream(user_input):
+                print(chunk, end="", flush=True)
+            print("\n")
         except (KeyboardInterrupt, EOFError):
             print("\nSession ended.")
             break
@@ -277,3 +324,4 @@ def run_cli():
 
 if __name__ == "__main__":
     run_cli()
+
