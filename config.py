@@ -61,3 +61,14 @@ def get_connection_uri() -> str:
     cfg = get_db_config()
     password_part = f":{cfg['password']}" if cfg["password"] else ""
     return f"postgresql://{cfg['user']}{password_part}@{cfg['host']}:{cfg['port']}/{cfg['dbname']}?sslmode={cfg['sslmode']}"
+
+
+def get_gemini_config() -> Dict[str, str]:
+    """
+    Returns Gemini AI configuration (API key and target model name).
+    """
+    return {
+        "api_key": os.getenv("GEMINI_API_KEY", "").strip(),
+        "model": os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip(),
+    }
+

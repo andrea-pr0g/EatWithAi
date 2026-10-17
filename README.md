@@ -18,6 +18,8 @@ Restaurant/
 ├── database.py          # PostgreSQL connection manager & query helpers via psycopg2
 ├── models.py            # Python dataclasses representing entities
 ├── chatbot_tools.py     # AI Chatbot tool functions & LLM function calling schemas
+├── security.py          # Input sanitization and prompt injection guardrails
+├── gemini_chatbot.py    # Hardened Gemini AI reservation agent & interactive CLI
 ├── init_db.py           # CLI runner to initialize, seed, and verify the database
 └── README.md            # Documentation and instructions
 ```
@@ -139,5 +141,34 @@ A set of specialized functions ready for conversational AI agents (OpenAI functi
 | **`get_booking_info(booking_id)`** | Retrieves details of an existing reservation. |
 
 Includes pre-built OpenAI-compatible tool definitions in **`CHATBOT_TOOL_DEFINITIONS`**.
+
+---
+
+## 🛡️ Gemini AI Chatbot & Security Guardrails (`gemini_chatbot.py`)
+
+A fully-featured conversational AI reservation host powered by **Google Gemini** (`gemini-2.5-flash` / `gemini-2.0-flash`), engineered with defense-in-depth protection against prompt injection, jailbreaking, and data leakage.
+
+### Security Layers:
+1. **Deterministic Injection Pre-Filter (`security.py`)**:
+   Regex pattern analysis detects and immediately blocks direct instruction overrides (`"ignore instructions"`), jailbreak roleplay (`"DAN"`, `"developer mode"`), system prompt leakage probes (`"print your system prompt"`), and SQL injection attempts before any API calls are made.
+2. **Structural Boundary Delimitation**:
+   User input is wrapped inside `<untrusted_customer_message>...</untrusted_customer_message>` boundary tags, training the model to treat content strictly as untrusted customer data.
+3. **Mandatory Confirmation Barrier**:
+   The bot is strictly prohibited by system rules from invoking `create_booking_reservation` without first presenting a full summary and receiving explicit user confirmation.
+4. **Input Sanitization & Length Limits**:
+   Normalizes whitespace, removes non-printable control characters, and caps message lengths at 600 characters to prevent buffer overflow/token flood attacks.
+
+### Running the Gemini Chatbot:
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Add your Gemini API key in .env
+# GEMINI_API_KEY=AIzaSy...
+
+# 3. Launch interactive chat in terminal
+python3 gemini_chatbot.py
+```
+
 
 
