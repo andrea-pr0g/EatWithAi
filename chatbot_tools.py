@@ -17,6 +17,8 @@ Available Tools:
 """
 
 from datetime import datetime, timedelta, date, time
+from decimal import Decimal
+from functools import wraps
 from typing import Optional, List, Dict, Any
 import uuid
 
@@ -24,8 +26,43 @@ from database import get_connection, get_dining_duration
 
 
 # ============================================================================
-# Helper Functions
+# Helper Functions & JSON Serialization Guardrail
 # ============================================================================
+
+def serialize_for_json(obj: Any) -> Any:
+    """
+    Recursively converts dates, datetimes, times, UUIDs, Decimals, and database records
+    into clean JSON-serializable primitives (strings, ints, floats, lists, dicts).
+    Prevents 'Object of type date is not JSON serializable' errors in LLM function callers.
+    """
+    if isinstance(obj, (date, datetime)):
+        if isinstance(obj, datetime):
+            return obj.strftime("%Y-%m-%d %H:%M:%S")
+        return obj.isoformat()
+    if isinstance(obj, time):
+        return obj.strftime("%H:%M")
+    if isinstance(obj, uuid.UUID):
+        return str(obj)
+    if isinstance(obj, Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    if isinstance(obj, dict):
+        return {str(k): serialize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [serialize_for_json(v) for v in obj]
+    return obj
+
+
+def json_safe_tool(func):
+    """
+    Decorator ensuring that any dictionary or data structure returned by a tool
+    function is 100% JSON-serializable by Gemini and other LLM function callers.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        res = func(*args, **kwargs)
+        return serialize_for_json(res)
+    return wrapper
+
 
 def _parse_date_and_time(date_str: str, time_str: str) -> datetime:
     """Parses date string ('YYYY-MM-DD') and time string ('HH:MM' or 'HH:MM:SS')."""
@@ -47,6 +84,7 @@ def _format_time(t: Any) -> str:
 # Tool 1: Check Restaurant Status (Closures & Shifts)
 # ============================================================================
 
+@json_safe_tool
 def check_restaurant_status(date_str: str, time_str: str) -> Dict[str, Any]:
     """
     Checks if the restaurant is open at a specific date and time.
@@ -199,6 +237,7 @@ def check_restaurant_status(date_str: str, time_str: str) -> Dict[str, Any]:
 # Tool 2: Dining Rules & Stay Duration
 # ============================================================================
 
+@json_safe_tool
 def get_dining_duration_for_party(party_size: int) -> Dict[str, Any]:
     """
     Returns the allotted stay duration in minutes for a given party size.
@@ -254,6 +293,7 @@ def get_dining_duration_for_party(party_size: int) -> Dict[str, Any]:
 # Tool 3: Check Table Availability
 # ============================================================================
 
+@json_safe_tool
 def check_table_availability(
     date_str: str,
     time_str: str,
@@ -396,6 +436,7 @@ def check_table_availability(
 # Tool 4: Find Alternative Time Slots
 # ============================================================================
 
+@json_safe_tool
 def find_available_slots(
     date_str: str,
     party_size: int,
@@ -514,6 +555,7 @@ def find_available_slots(
 # Tool 5: Get Restaurant Schedule
 # ============================================================================
 
+@json_safe_tool
 def get_restaurant_schedule(date_str: Optional[str] = None) -> Dict[str, Any]:
     """
     Returns operating shifts and scheduled closures.
@@ -602,9 +644,71 @@ def get_restaurant_schedule(date_str: Optional[str] = None) -> Dict[str, Any]:
 
 
 # ============================================================================
-# Tool 6: Create Booking Reservation
+# Tool 6: Get Restaurant Areas & Seating Zones
 # ============================================================================
 
+@json_safe_tool
+def get_restaurant_areas_and_tables() -> Dict[str, Any]:
+    """
+    Retrieves the available dining zones/areas (indoor, terrace, bar, private room),
+    their seat capacities, active table counts, and seating configurations.
+    Use this when a customer asks about zones, areas, or seating arrangements.
+
+    Returns:
+        dict: List of zones, seat capacities, and summary message.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT 
+                    area,
+                    COUNT(*) AS total_tables,
+                    MIN(seats_min) AS min_party,
+                    MAX(seats_max) AS max_single_table_capacity,
+                    SUM(seats_max) AS total_capacity,
+                    STRING_AGG(name, ', ' ORDER BY name) AS table_names
+                FROM tables
+                WHERE active = TRUE
+                GROUP BY area
+                ORDER BY area;
+                """
+            )
+            rows = [dict(r) for r in cur.fetchall()]
+
+    descriptions = {
+        "indoor": "Main cozy dining room with standard tables and combinable tables for larger groups.",
+        "terrace": "Outdoor covered terrace dining with pleasant open-air ambiance.",
+        "bar": "Bar seating area with high-top tables, ideal for drinks, appetizers, and solo diners.",
+        "private_room": "Dedicated private dining room for events, private parties, and banquets (up to 16 guests)."
+    }
+
+    zones = []
+    for r in rows:
+        area_name = r["area"]
+        zones.append({
+            "zone": area_name,
+            "description": descriptions.get(area_name, "Dining zone"),
+            "tables_count": r["total_tables"],
+            "capacity_per_table": f"{r['min_party']}-{r['max_single_table_capacity']} seats",
+            "total_zone_capacity": r["total_capacity"],
+            "tables": r["table_names"]
+        })
+
+    return {
+        "available_zones": zones,
+        "message": (
+            "Our restaurant features 4 distinct dining zones: Indoor Dining Room, "
+            "Outdoor Terrace, Bar High-Tops, and a Private Dining Room for events."
+        )
+    }
+
+
+# ============================================================================
+# Tool 7: Create Booking Reservation
+# ============================================================================
+
+@json_safe_tool
 def create_booking_reservation(
     name: str,
     surname: str,
@@ -747,9 +851,10 @@ def create_booking_reservation(
 
 
 # ============================================================================
-# Tool 7: Cancel Booking Reservation
+# Tool 8: Cancel Booking Reservation
 # ============================================================================
 
+@json_safe_tool
 def cancel_booking_reservation(booking_id: str, phone_or_email: str) -> Dict[str, Any]:
     """
     Cancels an existing booking after verifying the customer's phone or email.
@@ -815,9 +920,10 @@ def cancel_booking_reservation(booking_id: str, phone_or_email: str) -> Dict[str
 
 
 # ============================================================================
-# Tool 8: Get Booking Information
+# Tool 9: Get Booking Information
 # ============================================================================
 
+@json_safe_tool
 def get_booking_info(booking_id: str) -> Dict[str, Any]:
     """
     Looks up details of a booking by ID.
@@ -957,6 +1063,17 @@ CHATBOT_TOOL_DEFINITIONS = [
                     "phone_or_email": {"type": "string", "description": "Customer's phone or email for identity verification"}
                 },
                 "required": ["booking_id", "phone_or_email"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_restaurant_areas_and_tables",
+            "description": "Retrieves the available dining zones/areas (indoor, terrace, bar, private room), their seat capacities, active table counts, and seating configurations.",
+            "parameters": {
+                "type": "object",
+                "properties": {}
             }
         }
     },
