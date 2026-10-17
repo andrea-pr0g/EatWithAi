@@ -1,0 +1,20 @@
+# Operating System
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+venv/
+env/
+.venv/
+
+# SQLite WAL and SHM temporary files
+*.db-shm
+*.db-wal
+
+# SQLite database file (can be regenerated with `python3 init_db.py`)
+restaurant.db
