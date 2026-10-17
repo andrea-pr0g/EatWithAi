@@ -17,6 +17,7 @@ Restaurant/
 ├── seed_data.sql        # Realistic sample dataset
 ├── database.py          # PostgreSQL connection manager & query helpers via psycopg2
 ├── models.py            # Python dataclasses representing entities
+├── chatbot_tools.py     # AI Chatbot tool functions & LLM function calling schemas
 ├── init_db.py           # CLI runner to initialize, seed, and verify the database
 └── README.md            # Documentation and instructions
 ```
@@ -119,3 +120,24 @@ with get_connection() as conn:
     )
     print("Booking confirmed with UUID:", booking_id)
 ```
+
+---
+
+## 🤖 Chatbot Tools (`chatbot_tools.py`)
+
+A set of specialized functions ready for conversational AI agents (OpenAI function calling, Anthropic tool use, LangChain, or custom bots):
+
+| Function | Purpose |
+| :--- | :--- |
+| **`check_restaurant_status(date_str, time_str)`** | Evaluates if the restaurant is open, closed for holiday, outside shift hours, or past last bookable cutoff. |
+| **`check_table_availability(date_str, time_str, party_size, area=None)`** | Determines if single or joined combinable tables are available and computes exact stay duration. |
+| **`find_available_slots(date_str, party_size, preferred_time=None)`** | Searches for open time slots throughout the day if requested time is taken. |
+| **`get_restaurant_schedule(date_str=None)`** | Returns weekly hours and holiday closures (or schedule for a specific date). |
+| **`get_dining_duration_for_party(party_size)`** | Looks up allowed stay duration based on party size. |
+| **`create_booking_reservation(...)`** | End-to-end booking tool that creates the customer and assigns the best table. |
+| **`cancel_booking_reservation(booking_id, phone_or_email)`** | Verifies ownership and cancels a booking. |
+| **`get_booking_info(booking_id)`** | Retrieves details of an existing reservation. |
+
+Includes pre-built OpenAI-compatible tool definitions in **`CHATBOT_TOOL_DEFINITIONS`**.
+
+
