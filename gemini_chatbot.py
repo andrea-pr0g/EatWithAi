@@ -147,13 +147,10 @@ class GeminiRestaurantChatbot:
         self.sdk_type, self.client, self.model_name = init_gemini_client()
         self.history: List[Dict[str, Any]] = []
 
-    def process_message(self, user_message: str) -> str:
+    def process_message_stream(self, user_message: str) -> Generator[str, None, None]:
         """
-        Processes a customer message through:
-          1. Security pre-screening (Prompt injection heuristics).
-          2. Boundary encapsulation (<untrusted_customer_message>).
-          3. Gemini reasoning and tool execution loop.
-          4. Returns assistant response.
+        Processes a customer message and yields text chunks in real time
+        for smooth streaming responses.
         """
         # --- LAYER 1: Pre-execution Injection Check ---
         is_injection, reason = check_prompt_injection(user_message)
