@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-cosmos-950 text-slate-100 antialiased overflow-x-hidden;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Custom subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #030712;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #06b6d4;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background: rgba(10, 16, 43, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-card {
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  }
+
+  .glass-card-hover {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .glass-card-hover:hover {
+    transform: translateY(-4px);
+    border-color: rgba(6, 182, 212, 0.35);
+    box-shadow: 0 20px 40px -15px rgba(6, 182, 212, 0.2);
+  }
+
+  .text-glow-cyan {
+    text-shadow: 0 0 18px rgba(6, 182, 212, 0.6);
+  }
+
+  .text-glow-violet {
+    text-shadow: 0 0 18px rgba(139, 92, 246, 0.6);
+  }
+
+  .text-glow-amber {
+    text-shadow: 0 0 18px rgba(245, 158, 11, 0.6);
+  }
+
+  /* Animated cosmic twinkling stars background */
+  .cosmic-stars {
+    background-image: 
+      radial-gradient(1.5px 1.5px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.7), rgba(0,0,0,0)),
+      radial-gradient(2px 2px at 90px 40px, #38bdf8, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 160px 120px, #ffffff, rgba(0,0,0,0)),
+      radial-gradient(1.5px 1.5px at 230px 180px, #c084fc, rgba(0,0,0,0)),
+      radial-gradient(1px 1px at 300px 90px, #ffffff, rgba(0,0,0,0)),
+      radial-gradient(1.5px 1.5px at 380px 240px, #38bdf8, rgba(0,0,0,0));
+    background-repeat: repeat;
+    background-size: 450px 450px;
+  }
+}
+
+/* Typing cursor animation for real-time chatbot response */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  background-color: #22d3ee;
+  margin-left: 3px;
+  vertical-align: middle;
+  animation: blink 0.8s infinite;
+}

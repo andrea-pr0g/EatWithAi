@@ -22,11 +22,20 @@ EatWithAi/
 │
 ├── scripts/                 # Standalone operational CLI runners
 │   ├── init_db.py           # Database initialisation & verification runner
-│   └── run_chatbot.py       # Interactive terminal chatbot runner
+│   ├── run_chatbot.py       # Interactive terminal chatbot runner
+│   └── run_server.py        # FastAPI + Uvicorn web server runner
+│
+├── frontend/                # Modern Space-themed React + Tailwind CSS web application
+│   ├── src/                 # React components (Chatbot, Menu, Zones, Hero, Modals)
+│   ├── public/assets/       # Coherent photography (Burgers, Steaks, Shakes, Space Interior)
+│   ├── tailwind.config.js   # Tailwind CSS v3 theme configuration (Cosmos palette & glows)
+│   ├── package.json         # Frontend dependencies (React, Vite, Tailwind, Lucide)
+│   └── dist/                # Pre-built production bundle served by FastAPI
 │
 ├── src/
 │   └── eatwithai/           # Core Python package (src layout)
 │       ├── __init__.py      # Package exports & version
+│       ├── server.py        # FastAPI backend (SSE streaming chat, menu, bookings, static SPA)
 │       ├── config.py        # Centralized path, DB, and Gemini configuration
 │       ├── models.py        # Domain dataclasses (Customer, RestaurantTable, Booking, etc.)
 │       ├── security.py      # Defense-in-depth prompt injection defense & input sanitizers
@@ -105,8 +114,17 @@ This will:
 - Run `sql/seed_data.sql` (populating sample records and synchronizing ID sequences)
 - Print a summary verification of all tables, views, and reservation logic
 
-### 3. Launch the AI Reservation Chatbot
-Start the interactive streaming chatbot:
+### 3. Launch the Web Server & Space Restaurant Website
+Start the FastAPI web server to launch the full website and real-time AI concierge:
+```bash
+python3 scripts/run_server.py
+```
+Then open your browser at:
+* **Website**: [http://localhost:8000](http://localhost:8000)
+* **API Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+### 4. Launch the Terminal AI Chatbot (CLI Mode)
+If you prefer testing the chatbot directly in your terminal:
 ```bash
 python3 scripts/run_chatbot.py
 ```
@@ -115,10 +133,50 @@ Or via the package CLI:
 python3 -m eatwithai chat
 ```
 
-### 4. Check System Status
+### 5. Check System Status
 Verify database connectivity and environment configuration anytime:
 ```bash
 python3 -m eatwithai status
+```
+
+---
+
+## 🌐 Space Restaurant Web Application & Architecture
+
+The website features an immersive space-station aesthetic ("Orbiting at 408 km") built with **Tailwind CSS v3**, **React**, and **FastAPI**:
+
+### Key Features
+1. **Gemini AI Concierge Terminal**:
+   - Implements the exact logic and guardrails from `scripts/run_chatbot.py`.
+   - Token-by-token **Server-Sent Events (SSE)** streaming (`POST /api/chat/stream`).
+   - Live guardrail telemetry indicators (Prompt Injection Regex, Boundary Isolation, Confirmation Barrier).
+   - Floating AI chat orb at bottom-right for seamless access while browsing.
+2. **Database-Grounded Menu**:
+   - Dynamically loads all 8 categories and 35 dishes directly from PostgreSQL (`GET /api/menu`).
+   - Photography matches the database: Handcrafted Burgers, USDA Prime Steaks, and Hand-Spun Shakes.
+   - Dietary filters (Vegetarian, Vegan, Gluten-Free) and search bar.
+   - One-click *"Ask AI Host About This Dish"* integration.
+3. **Dining Zones & Table Booking**:
+   - Live visual layout of all 4 zones: Indoor Nebula Lounge, Starlight Terrace, Meteorite Bar, and Orbital Private Suite.
+   - Interactive Booking Wizard (`POST /api/check-availability` & `POST /api/reserve`) with confetti celebrations.
+4. **Mission Schedule & Shifts**:
+   - Live hours and upcoming scheduled closures from PostgreSQL.
+
+### Development Mode (Frontend HMR)
+To modify frontend code with live reload:
+```bash
+# Terminal 1: Start backend
+python3 scripts/run_server.py
+
+# Terminal 2: Start Vite dev server
+cd frontend
+npm run dev
+```
+Open [http://localhost:5173](http://localhost:5173). Requests to `/api` proxy automatically to `:8000`.
+
+To rebuild the production bundle:
+```bash
+cd frontend && npm run build
 ```
 
 ---
