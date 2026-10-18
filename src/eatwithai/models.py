@@ -26,6 +26,7 @@ class RestaurantTable:
     seats_max: int
     area: str  # 'indoor', 'terrace', 'bar', 'private_room'
     active: bool = True
+    available: bool = True
     combinable_with: List[str] = field(default_factory=list)
 
 

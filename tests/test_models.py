@@ -40,6 +40,19 @@ class TestModels(unittest.TestCase):
         )
         self.assertEqual(t.name, "T01")
         self.assertEqual(t.combinable_with, ["T02"])
+        self.assertTrue(t.available)
+
+        # Test occupied table
+        t_occupied = RestaurantTable(
+            table_id=2,
+            name="T02",
+            seats_min=1,
+            seats_max=2,
+            area="indoor",
+            active=True,
+            available=False,
+        )
+        self.assertFalse(t_occupied.available)
 
     def test_booking_creation(self):
         now = datetime.now()

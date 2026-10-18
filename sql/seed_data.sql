@@ -34,28 +34,28 @@ INSERT INTO customers (customer_id, name, surname, phone, email, created_at) VAL
 -- ----------------------------------------------------------------------------
 -- 2. Tables (Indoor, Terrace, Bar, Private Room)
 -- ----------------------------------------------------------------------------
-INSERT INTO tables (table_id, name, seats_min, seats_max, area, active) VALUES
+INSERT INTO tables (table_id, name, seats_min, seats_max, area, active, available) VALUES
 -- Indoor Tables
-(1,  'T01', 1, 2, 'indoor', TRUE),
-(2,  'T02', 1, 2, 'indoor', TRUE),
-(3,  'T03', 2, 4, 'indoor', TRUE),
-(4,  'T04', 3, 6, 'indoor', TRUE),
-(5,  'T05', 3, 6, 'indoor', TRUE),
-(6,  'T06', 2, 4, 'indoor', TRUE),
+(1,  'T01', 1, 2, 'indoor', TRUE, TRUE),
+(2,  'T02', 1, 2, 'indoor', TRUE, TRUE),
+(3,  'T03', 2, 4, 'indoor', TRUE, TRUE),
+(4,  'T04', 3, 6, 'indoor', TRUE, TRUE),
+(5,  'T05', 3, 6, 'indoor', TRUE, TRUE),
+(6,  'T06', 2, 4, 'indoor', TRUE, TRUE),
 -- Terrace Tables
-(7,  'TR01', 2, 4, 'terrace', TRUE),
-(8,  'TR02', 2, 4, 'terrace', TRUE),
-(9,  'TR03', 4, 6, 'terrace', TRUE),
-(10, 'TR04', 4, 6, 'terrace', TRUE),
-(11, 'TR05', 1, 2, 'terrace', TRUE),
+(7,  'TR01', 2, 4, 'terrace', TRUE, TRUE),
+(8,  'TR02', 2, 4, 'terrace', TRUE, TRUE),
+(9,  'TR03', 4, 6, 'terrace', TRUE, TRUE),
+(10, 'TR04', 4, 6, 'terrace', TRUE, TRUE),
+(11, 'TR05', 1, 2, 'terrace', TRUE, TRUE),
 -- Bar High Tops
-(12, 'B01', 1, 2, 'bar', TRUE),
-(13, 'B02', 1, 2, 'bar', TRUE),
-(14, 'B03', 1, 2, 'bar', TRUE),
+(12, 'B01', 1, 2, 'bar', TRUE, TRUE),
+(13, 'B02', 1, 2, 'bar', TRUE, TRUE),
+(14, 'B03', 1, 2, 'bar', TRUE, TRUE),
 -- Private Dining Room
-(15, 'P01', 8, 16, 'private_room', TRUE),
+(15, 'P01', 8, 16, 'private_room', TRUE, TRUE),
 -- Inactive table for maintenance testing
-(16, 'T99', 2, 4, 'indoor', FALSE);
+(16, 'T99', 2, 4, 'indoor', FALSE, FALSE);
 
 -- Sync serial sequence for tables
 SELECT setval(pg_get_serial_sequence('tables', 'table_id'), COALESCE(MAX(table_id), 1)) FROM tables;
@@ -294,4 +294,22 @@ INSERT INTO menu_items (
 
 -- Sync serial sequence for menu_items
 SELECT setval(pg_get_serial_sequence('menu_items', 'item_id'), COALESCE(MAX(item_id), 1)) FROM menu_items;
+
+-- ----------------------------------------------------------------------------
+-- 9. Synchronize live table occupancy based on active bookings at seeding time
+-- ----------------------------------------------------------------------------
+UPDATE tables t
+SET available = (
+    t.active = TRUE
+    AND NOT EXISTS (
+        SELECT 1
+        FROM booking_tables bt
+        JOIN bookings b ON bt.booking_id = b.booking_id
+        WHERE bt.table_id = t.table_id
+          AND b.status NOT IN ('cancelled', 'no_show')
+          AND b.start_time <= CURRENT_TIMESTAMP
+          AND b.end_time > CURRENT_TIMESTAMP
+    )
+);
+
 

@@ -29,6 +29,8 @@ from eatwithai.db import (
     get_menu_items,
     get_menu_item_by_name,
     search_menu,
+    update_tables_occupancy,
+    get_tables_status,
 )
 from eatwithai.chatbot.schemas import CHATBOT_TOOL_DEFINITIONS
 
@@ -839,6 +841,7 @@ def create_booking_reservation(
                 )
 
         conn.commit()
+        update_tables_occupancy(conn)
 
     tables_str = ", ".join(table_names)
     return {
@@ -920,6 +923,7 @@ def cancel_booking_reservation(booking_id: str, phone_or_email: str) -> Dict[str
                 (booking_id.strip(),)
             )
         conn.commit()
+        update_tables_occupancy(conn)
 
     return {
         "success": True,

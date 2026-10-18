@@ -158,6 +158,12 @@ def main():
     # status command
     subparsers.add_parser("status", help="Show system configuration and connection status")
 
+    # monitor-tables command
+    monitor_parser = subparsers.add_parser("monitor-tables", help="Continuously check and update table occupancy in database")
+    monitor_parser.add_argument("--interval", "-i", type=int, default=5, help="Polling interval in seconds")
+    monitor_parser.add_argument("--once", action="store_true", help="Run once and exit")
+    monitor_parser.add_argument("--at", type=str, default=None, help="Check occupancy at specific time ('YYYY-MM-DD HH:MM')")
+
     args = parser.parse_args()
 
     if args.command == "init-db":
@@ -167,6 +173,10 @@ def main():
         run_cli()
     elif args.command == "status":
         status_main()
+    elif args.command == "monitor-tables":
+        # Import monitor function from scripts/monitor_tables.py
+        from scripts.monitor_tables import monitor_loop
+        monitor_loop(interval=args.interval, once=args.once, at_time_str=args.at)
     else:
         # Default to printing help or running chat if no command
         parser.print_help()

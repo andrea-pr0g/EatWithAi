@@ -7,6 +7,8 @@ from eatwithai.db.connection import check_psycopg2_installed, get_connection
 from eatwithai.db.repository import (
     init_db,
     seed_db,
+    update_tables_occupancy,
+    get_tables_status,
     get_dining_duration,
     create_customer,
     create_booking,
@@ -22,6 +24,8 @@ __all__ = [
     "get_connection",
     "init_db",
     "seed_db",
+    "update_tables_occupancy",
+    "get_tables_status",
     "get_dining_duration",
     "create_customer",
     "create_booking",

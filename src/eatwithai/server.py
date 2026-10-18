@@ -10,6 +10,8 @@ import json
 import uuid
 import time
 import asyncio
+import logging
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, Generator
@@ -28,11 +30,52 @@ if str(SRC_DIR) not in sys.path:
 from eatwithai.chatbot.agent import GeminiRestaurantChatbot
 from eatwithai.chatbot import tools
 from eatwithai.security import check_prompt_injection
+from eatwithai.db import get_connection, update_tables_occupancy, get_tables_status
+
+logger = logging.getLogger("eatwithai.server")
+
+async def table_occupancy_checker(interval_seconds: int = 10):
+    """
+    Continuous background loop that always checks whether each table
+    in the database is occupied by an active booking or free.
+    Updates the 'available' column in PostgreSQL (False if occupied/inactive, True if free).
+    """
+    try:
+        with get_connection() as conn:
+            update_tables_occupancy(conn)
+            logger.info("Initial table occupancy synchronized successfully.")
+    except Exception as e:
+        logger.error(f"Initial table occupancy check failed: {e}")
+
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            with get_connection() as conn:
+                update_tables_occupancy(conn)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Error in continuous table occupancy monitor: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start continuous table occupancy monitoring daemon
+    monitor_task = asyncio.create_task(table_occupancy_checker(interval_seconds=10))
+    yield
+    # Cleanup on server shutdown
+    monitor_task.cancel()
+    try:
+        await monitor_task
+    except asyncio.CancelledError:
+        pass
+
 
 app = FastAPI(
     title="EatWithAi Galactic Restaurant API",
     description="Space-themed restaurant AI reservation system & authentic American dining API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Enable CORS for local Vite dev server and external clients
@@ -104,6 +147,47 @@ def health_check():
     }
 
 
+@app.get("/api/tables")
+def get_tables_live():
+    """
+    Returns real-time occupancy and availability status for all restaurant tables.
+    Each table has an 'available' boolean column updated based on whether an active
+    booking currently occupies the table.
+    """
+    try:
+        with get_connection() as conn:
+            tables_data = update_tables_occupancy(conn)
+            # Ensure JSON-safe serialization
+            safe_tables = [tools.serialize_for_json(t) for t in tables_data]
+        return {
+            "status": "success",
+            "timestamp": datetime.now().isoformat(),
+            "total_tables": len(safe_tables),
+            "tables": safe_tables,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/tables/sync-occupancy")
+def sync_tables():
+    """
+    Forces an immediate recalculation of table occupancy and updates the available column.
+    """
+    try:
+        with get_connection() as conn:
+            tables_data = update_tables_occupancy(conn)
+            safe_tables = [tools.serialize_for_json(t) for t in tables_data]
+        return {
+            "status": "success",
+            "message": "Table occupancy synchronized successfully.",
+            "timestamp": datetime.now().isoformat(),
+            "tables": safe_tables,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/restaurant-info")
 def get_restaurant_info():
     """Returns live restaurant status, operating schedule, and dining zones."""
@@ -115,11 +199,15 @@ def get_restaurant_info():
         status = tools.check_restaurant_status(date_str, time_str)
         schedule = tools.get_restaurant_schedule()
         areas = tools.get_restaurant_areas_and_tables()
+        with get_connection() as conn:
+            tables_data = update_tables_occupancy(conn)
+            safe_tables = [tools.serialize_for_json(t) for t in tables_data]
         
         return {
             "status": status,
             "schedule": schedule,
             "areas": areas,
+            "tables": safe_tables,
             "current_time": f"{date_str} {time_str}",
             "space_coordinates": {
                 "altitude": "408 km (Low Earth Orbit)",

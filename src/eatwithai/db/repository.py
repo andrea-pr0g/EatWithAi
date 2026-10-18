@@ -24,6 +24,7 @@ def init_db(schema_file: Optional[Path] = None) -> None:
         with conn.cursor() as cur:
             cur.execute(schema_sql)
         conn.commit()
+        update_tables_occupancy(conn)
 
 
 def seed_db(seed_file: Optional[Path] = None) -> None:
@@ -38,6 +39,150 @@ def seed_db(seed_file: Optional[Path] = None) -> None:
         with conn.cursor() as cur:
             cur.execute(seed_sql)
         conn.commit()
+        update_tables_occupancy(conn)
+
+
+def update_tables_occupancy(
+    conn,
+    at_time: Optional[datetime] = None
+) -> List[Dict[str, Any]]:
+    """
+    Updates the 'available' boolean column for all tables in the database based on occupancy.
+    
+    A table is marked available = FALSE if:
+      - It is inactive (active = FALSE), OR
+      - It has an active booking (status NOT IN ('cancelled', 'no_show')) 
+        currently ongoing at the specified timestamp (start_time <= at_time AND end_time > at_time).
+    Otherwise, available = TRUE.
+    
+    Args:
+        conn: PostgreSQL database connection.
+        at_time: Optional reference datetime. Defaults to CURRENT_TIMESTAMP if None.
+        
+    Returns:
+        List of dictionaries with updated table statuses, including occupancy and active booking info.
+    """
+    with conn.cursor() as cur:
+        if at_time is None:
+            cur.execute(
+                """
+                UPDATE tables t
+                SET available = (
+                    t.active = TRUE
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM booking_tables bt
+                        JOIN bookings b ON bt.booking_id = b.booking_id
+                        WHERE bt.table_id = t.table_id
+                          AND b.status NOT IN ('cancelled', 'no_show')
+                          AND b.start_time <= CURRENT_TIMESTAMP
+                          AND b.end_time > CURRENT_TIMESTAMP
+                    )
+                );
+                """
+            )
+        else:
+            cur.execute(
+                """
+                UPDATE tables t
+                SET available = (
+                    t.active = TRUE
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM booking_tables bt
+                        JOIN bookings b ON bt.booking_id = b.booking_id
+                        WHERE bt.table_id = t.table_id
+                          AND b.status NOT IN ('cancelled', 'no_show')
+                          AND b.start_time <= %s
+                          AND b.end_time > %s
+                    )
+                );
+                """,
+                (at_time, at_time)
+            )
+    conn.commit()
+    return get_tables_status(conn, at_time=at_time)
+
+
+def get_tables_status(
+    conn,
+    at_time: Optional[datetime] = None
+) -> List[Dict[str, Any]]:
+    """
+    Retrieves all tables with their current occupancy and availability state,
+    along with any active booking details for the occupied tables.
+    """
+    with conn.cursor() as cur:
+        if at_time is None:
+            cur.execute(
+                """
+                SELECT 
+                    t.table_id,
+                    t.name,
+                    t.seats_min,
+                    t.seats_max,
+                    t.area,
+                    t.active,
+                    t.available,
+                    b.booking_id,
+                    b.party_size,
+                    b.start_time,
+                    b.end_time,
+                    b.status AS booking_status,
+                    b.source AS booking_source,
+                    b.special_requests,
+                    c.name || ' ' || c.surname AS customer_name,
+                    c.phone AS customer_phone
+                FROM tables t
+                LEFT JOIN (
+                    SELECT bt.table_id, b.booking_id, b.party_size, b.start_time, b.end_time,
+                           b.status, b.source, b.special_requests, b.customer_id
+                    FROM booking_tables bt
+                    JOIN bookings b ON bt.booking_id = b.booking_id
+                    WHERE b.status NOT IN ('cancelled', 'no_show')
+                      AND b.start_time <= CURRENT_TIMESTAMP
+                      AND b.end_time > CURRENT_TIMESTAMP
+                ) b ON t.table_id = b.table_id
+                LEFT JOIN customers c ON b.customer_id = c.customer_id
+                ORDER BY t.table_id ASC;
+                """
+            )
+        else:
+            cur.execute(
+                """
+                SELECT 
+                    t.table_id,
+                    t.name,
+                    t.seats_min,
+                    t.seats_max,
+                    t.area,
+                    t.active,
+                    t.available,
+                    b.booking_id,
+                    b.party_size,
+                    b.start_time,
+                    b.end_time,
+                    b.status AS booking_status,
+                    b.source AS booking_source,
+                    b.special_requests,
+                    c.name || ' ' || c.surname AS customer_name,
+                    c.phone AS customer_phone
+                FROM tables t
+                LEFT JOIN (
+                    SELECT bt.table_id, b.booking_id, b.party_size, b.start_time, b.end_time,
+                           b.status, b.source, b.special_requests, b.customer_id
+                    FROM booking_tables bt
+                    JOIN bookings b ON bt.booking_id = b.booking_id
+                    WHERE b.status NOT IN ('cancelled', 'no_show')
+                      AND b.start_time <= %s
+                      AND b.end_time > %s
+                ) b ON t.table_id = b.table_id
+                LEFT JOIN customers c ON b.customer_id = c.customer_id
+                ORDER BY t.table_id ASC;
+                """,
+                (at_time, at_time)
+            )
+        return [dict(row) for row in cur.fetchall()]
 
 
 def get_dining_duration(conn, party_size: int) -> int:
@@ -131,6 +276,7 @@ def create_booking(
                 (booking_id, tid)
             )
     conn.commit()
+    update_tables_occupancy(conn)
     return booking_id
 
 
@@ -144,7 +290,7 @@ def get_available_tables(
     Finds active tables that are not occupied during the requested time window.
     """
     query = """
-        SELECT t.table_id, t.name, t.seats_min, t.seats_max, t.area
+        SELECT t.table_id, t.name, t.seats_min, t.seats_max, t.area, t.available
         FROM tables t
         WHERE t.active = TRUE
     """

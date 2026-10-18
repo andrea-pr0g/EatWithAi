@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Layers, 
   Users, 
@@ -7,11 +7,37 @@ import {
   CheckCircle2, 
   Compass, 
   Maximize2,
-  Calendar
+  Calendar,
+  Radio,
+  Clock
 } from 'lucide-react';
 
 export default function ZonesSection({ onSelectZone, onOpenWizard }) {
   const [activeZone, setActiveZone] = useState('indoor');
+  const [tablesMap, setTablesMap] = useState({});
+  const [lastSync, setLastSync] = useState(null);
+
+  useEffect(() => {
+    const fetchLiveTables = () => {
+      fetch('/api/tables')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.tables) {
+            const map = {};
+            data.tables.forEach(t => {
+              map[t.name] = t;
+            });
+            setTablesMap(map);
+            setLastSync(new Date().toLocaleTimeString());
+          }
+        })
+        .catch(err => console.error("Could not fetch tables live:", err));
+    };
+
+    fetchLiveTables();
+    const interval = setInterval(fetchLiveTables, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   const zones = [
     {
@@ -182,30 +208,77 @@ export default function ZonesSection({ onSelectZone, onOpenWizard }) {
                     <Compass className="w-4 h-4" />
                     LIVE STATION ALLOCATION MAP
                   </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">
-                    STATUS: READY
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/30">
+                      LIVE DB SYNC {lastSync ? `• ${lastSync}` : 'ACTIVE'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Table Layout Visualizer */}
                 <div className="grid grid-cols-3 gap-3 py-4">
-                  {current.tables.map((tbl, idx) => (
-                    <div 
-                      key={idx}
-                      className="p-4 rounded-xl bg-cosmos-800/80 border border-white/10 text-center hover:border-cyan-400 transition-colors group cursor-pointer"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-mono text-xs flex items-center justify-center mx-auto mb-2 group-hover:bg-cyan-500 group-hover:text-cosmos-950 transition-colors">
-                        {tbl.split(' ')[0]}
+                  {current.tables.map((tbl, idx) => {
+                    const rawName = tbl.split(' ')[0];
+                    const tData = tablesMap[rawName];
+                    const isOccupied = tData && tData.available === false && tData.active === true;
+                    const isInactive = tData && tData.active === false;
+
+                    return (
+                      <div 
+                        key={idx}
+                        className={`p-3 sm:p-4 rounded-xl border text-center transition-all group cursor-pointer ${
+                          isOccupied 
+                            ? 'bg-rose-950/40 border-rose-500/40 hover:border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.15)]' 
+                            : isInactive
+                            ? 'bg-slate-900/40 border-slate-700/40 opacity-60'
+                            : 'bg-cosmos-800/80 border-emerald-500/30 hover:border-emerald-400 hover:shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg font-mono text-xs flex items-center justify-center mx-auto mb-2 transition-colors ${
+                          isOccupied
+                            ? 'bg-rose-900/60 border border-rose-500/60 text-rose-300 group-hover:bg-rose-500 group-hover:text-cosmos-950'
+                            : isInactive
+                            ? 'bg-slate-800 border border-slate-600 text-slate-400'
+                            : 'bg-emerald-950 border border-emerald-500/40 text-emerald-300 group-hover:bg-emerald-500 group-hover:text-cosmos-950'
+                        }`}>
+                          {rawName}
+                        </div>
+                        <div className="text-[11px] font-mono text-slate-200 font-medium">{tbl}</div>
+                        
+                        {/* Occupancy Status Badge */}
+                        <div className="mt-1">
+                          {isOccupied ? (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-mono font-semibold text-rose-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                              Occupied
+                            </span>
+                          ) : isInactive ? (
+                            <span className="text-[9px] font-mono text-slate-400">
+                              Maintenance
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-mono font-semibold text-emerald-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                              Available
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Guest / Remaining info if occupied */}
+                        {isOccupied && tData?.customer_name && (
+                          <div className="text-[8px] font-mono text-rose-300/80 mt-1 truncate" title={tData.customer_name}>
+                            {tData.customer_name}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-[11px] font-mono text-slate-300 font-medium">{tbl}</div>
-                      <div className="text-[9px] text-slate-400 font-mono mt-0.5">Available</div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="text-[11px] text-slate-400 font-mono border-t border-white/10 pt-3 flex items-center justify-between">
-                  <span>Smart combinable tables active</span>
-                  <span className="text-cyan-400">Automatic Adjacency Guard</span>
+                  <span>Continuous Occupancy Guard Active</span>
+                  <span className="text-cyan-400">DB available Column Synced</span>
                 </div>
               </div>
             </div>

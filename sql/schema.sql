@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS tables (
     seats_max       INTEGER NOT NULL CHECK (seats_max >= seats_min),
     area            VARCHAR(50) NOT NULL CHECK (area IN ('indoor', 'terrace', 'bar', 'private_room')),
     active          BOOLEAN NOT NULL DEFAULT TRUE,
+    available       BOOLEAN NOT NULL DEFAULT TRUE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -152,6 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
 CREATE INDEX IF NOT EXISTS idx_tables_area ON tables(area);
 CREATE INDEX IF NOT EXISTS idx_tables_active ON tables(active);
+CREATE INDEX IF NOT EXISTS idx_tables_available ON tables(available);
 CREATE INDEX IF NOT EXISTS idx_opening_shifts_weekday ON opening_shifts(weekday);
 CREATE INDEX IF NOT EXISTS idx_closures_date ON closures(date);
 CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id);
@@ -183,6 +185,7 @@ EXECUTE FUNCTION update_updated_at_column();
 -- ----------------------------------------------------------------------------
 
 -- View combining tables with a comma-separated list of combinable adjacent table names
+DROP VIEW IF EXISTS v_tables_with_combinations CASCADE;
 CREATE OR REPLACE VIEW v_tables_with_combinations AS
 SELECT 
     t.table_id,
@@ -191,6 +194,7 @@ SELECT
     t.seats_max,
     t.area,
     t.active,
+    t.available,
     COALESCE(
         STRING_AGG(c.name, ', ' ORDER BY c.name), 
         'None'
@@ -198,7 +202,7 @@ SELECT
 FROM tables t
 LEFT JOIN table_combinations tc ON t.table_id = tc.table_id
 LEFT JOIN tables c ON tc.combinable_with_table_id = c.table_id
-GROUP BY t.table_id, t.name, t.seats_min, t.seats_max, t.area, t.active;
+GROUP BY t.table_id, t.name, t.seats_min, t.seats_max, t.area, t.active, t.available;
 
 -- Detailed booking overview joining customer and assigned tables
 CREATE OR REPLACE VIEW v_booking_details AS
