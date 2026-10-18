@@ -1,69 +1,23 @@
 """
-Database management module for PostgreSQL using psycopg2.
-Credentials are read from .env via config.py.
+Database Repository Module.
+Contains SQL query logic, entity persistence, table availability lookups,
+and schema initialization/seeding helpers.
 """
 
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-from config import get_db_config, get_connection_uri
-
-# Attempt psycopg2 import with helpful error if missing
-try:
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-    PSYCOPG2_AVAILABLE = True
-except ImportError:
-    psycopg2 = None
-    RealDictCursor = None
-    PSYCOPG2_AVAILABLE = False
-
-BASE_DIR = Path(__file__).parent
-SCHEMA_PATH = BASE_DIR / "schema.sql"
-SEED_PATH = BASE_DIR / "seed_data.sql"
+from eatwithai.config import SCHEMA_PATH, SEED_PATH
+from eatwithai.db.connection import get_connection
 
 
-def check_psycopg2_installed() -> None:
-    """Raises an informative ImportError if psycopg2 is not installed."""
-    if not PSYCOPG2_AVAILABLE:
-        raise ImportError(
-            "\n" + "=" * 60 + "\n"
-            "psycopg2 is not installed.\n"
-            "Please install dependencies with:\n"
-            "    pip install -r requirements.txt\n"
-            "or:\n"
-            "    pip install psycopg2-binary python-dotenv\n"
-            + "=" * 60
-        )
-
-
-def get_connection():
-    """
-    Returns a psycopg2 connection using credentials loaded from .env.
-    Uses RealDictCursor by default so column values can be accessed by name.
-    """
-    check_psycopg2_installed()
-    config = get_db_config()
-    try:
-        conn = psycopg2.connect(**config, cursor_factory=RealDictCursor)
-        conn.autocommit = False
-        return conn
-    except psycopg2.OperationalError as exc:
-        raise ConnectionError(
-            f"\n" + "=" * 60 + "\n"
-            f"Failed to connect to PostgreSQL server at {config['host']}:{config['port']}/{config['dbname']}.\n"
-            f"Please check your credentials in: .env\n"
-            f"Error details: {exc}\n"
-            + "=" * 60
-        ) from exc
-
-
-def init_db(schema_file: Path = SCHEMA_PATH) -> None:
+def init_db(schema_file: Optional[Path] = None) -> None:
     """
     Executes schema.sql DDL to create tables, indexes, views, and triggers.
     """
-    with open(schema_file, "r", encoding="utf-8") as f:
+    target_path = schema_file or SCHEMA_PATH
+    with open(target_path, "r", encoding="utf-8") as f:
         schema_sql = f.read()
 
     with get_connection() as conn:
@@ -72,11 +26,12 @@ def init_db(schema_file: Path = SCHEMA_PATH) -> None:
         conn.commit()
 
 
-def seed_db(seed_file: Path = SEED_PATH) -> None:
+def seed_db(seed_file: Optional[Path] = None) -> None:
     """
     Executes seed_data.sql to populate tables with sample dataset.
     """
-    with open(seed_file, "r", encoding="utf-8") as f:
+    target_path = seed_file or SEED_PATH
+    with open(target_path, "r", encoding="utf-8") as f:
         seed_sql = f.read()
 
     with get_connection() as conn:

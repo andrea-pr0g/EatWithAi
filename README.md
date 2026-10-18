@@ -1,79 +1,138 @@
-# Restaurant Reservation System - PostgreSQL & Python (`psycopg2`)
+# EatWithAi - AI Restaurant Reservation Platform
 
-A complete, production-grade PostgreSQL relational database schema and Python integration layer using `psycopg2` for a restaurant reservation system.
+A complete, production-grade restaurant reservation system featuring a PostgreSQL relational database schema, Python data integration layer (`psycopg2`), and a conversational AI reservation host powered by **Google Gemini** with defense-in-depth prompt injection guardrails.
 
 ---
 
 ## 📁 Project Structure
 
+The project follows a standard, modular Python repository layout:
+
 ```text
-Restaurant/
-├── .env                 # (Ignored by git) Put your PostgreSQL credentials here
-├── .env.example         # Template for environment variables
-├── .gitignore           # Ignores .env, __pycache__, and temporary files
-├── requirements.txt     # Python dependencies (psycopg2-binary, python-dotenv)
-├── config.py            # Loads credentials from .env with fallback parser
-├── schema.sql           # PostgreSQL DDL (UUIDs, SERIAL, constraints, triggers, views)
-├── seed_data.sql        # Realistic sample dataset
-├── database.py          # PostgreSQL connection manager & query helpers via psycopg2
-├── models.py            # Python dataclasses representing entities
-├── chatbot_tools.py     # AI Chatbot tool functions & LLM function calling schemas
-├── security.py          # Input sanitization and prompt injection guardrails
-├── gemini_chatbot.py    # Hardened Gemini AI reservation agent & interactive CLI
-├── init_db.py           # CLI runner to initialize, seed, and verify the database
-└── README.md            # Documentation and instructions
+EatWithAi/
+├── .env.example             # Template for database & Gemini credentials
+├── .gitignore               # Excludes caches, local env, and temp files
+├── pyproject.toml           # PEP 518/621 package metadata & CLI entry points
+├── requirements.txt         # Pinned / flexible project dependencies
+├── README.md                # Platform documentation & operational guide
+│
+├── sql/                     # PostgreSQL database scripts
+│   ├── schema.sql           # DDL: tables, UUIDs, constraints, triggers, views
+│   └── seed_data.sql        # Realistic sample data & sequence alignments
+│
+├── scripts/                 # Standalone operational CLI runners
+│   ├── init_db.py           # Database initialisation & verification runner
+│   └── run_chatbot.py       # Interactive terminal chatbot runner
+│
+├── src/
+│   └── eatwithai/           # Core Python package (src layout)
+│       ├── __init__.py      # Package exports & version
+│       ├── config.py        # Centralized path, DB, and Gemini configuration
+│       ├── models.py        # Domain dataclasses (Customer, RestaurantTable, Booking, etc.)
+│       ├── security.py      # Defense-in-depth prompt injection defense & input sanitizers
+│       ├── cli.py           # Unified CLI interface (`init-db`, `chat`, `status`)
+│       ├── __main__.py      # Allows `python -m eatwithai`
+│       │
+│       ├── db/              # Database subpackage
+│       │   ├── __init__.py  # Database facade exports
+│       │   ├── connection.py# PostgreSQL connection manager & error handling
+│       │   └── repository.py# Table availability lookups, CRUD queries, init/seed logic
+│       │
+│       └── chatbot/         # AI Chatbot subpackage
+│           ├── __init__.py  # Chatbot facade exports
+│           ├── agent.py     # GeminiRestaurantChatbot streaming engine & session manager
+│           ├── prompts.py   # Dynamic system instruction with live time grounding
+│           ├── tools.py     # LLM tool implementations (availability, booking, slots)
+│           └── schemas.py   # OpenAI / JSON Schema tool definitions
+│
+└── tests/                   # Automated unit & integration tests
+    ├── __init__.py
+    ├── test_config.py       # Path & environment configuration tests
+    ├── test_models.py       # Dataclass model instantiation & typing tests
+    ├── test_security.py     # Prompt injection regex & sanitization tests
+    ├── test_tools.py        # Tool formatting & JSON serialization tests
+    └── test_db.py           # PostgreSQL integration tests
 ```
 
 ---
 
-## 🔐 Where to Put PostgreSQL Credentials
+## 🔐 Configuration (`.env`)
 
-Put your PostgreSQL connection credentials in the [**`.env`**](file:///Users/andrealavalle/Documents/Restaurant/.env) file located in the root of the project:
+Create a `.env` file in the project root (copy from `.env.example`):
 
 ```env
 # PostgreSQL Database Credentials
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=restaurant_db
+DB_NAME=Restaurant
 DB_USER=postgres
 DB_PASSWORD=your_actual_password_here
 DB_SSLMODE=prefer
+
+# Gemini AI Configuration
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 > [!NOTE]
-> `.env` is automatically excluded from git in `.gitignore` to prevent leaking passwords.
-> A template file [`.env.example`](file:///Users/andrealavalle/Documents/Restaurant/.env.example) is committed to git for reference.
+> `.env` is automatically excluded from git in `.gitignore` to prevent leaking credentials.
 
 ---
 
 ## 🚀 Setup & Installation
 
-### 1. Install Python Dependencies
-Install `psycopg2-binary` and `python-dotenv`:
+### 1. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
-
-### 2. Create the Database in PostgreSQL
-Ensure PostgreSQL is running, then create the database (if it doesn't already exist):
+Or install in editable mode:
 ```bash
-# Using CLI
-createdb restaurant_db
-
-# Or using psql
-psql -U postgres -c "CREATE DATABASE restaurant_db;"
+pip install -e .
 ```
 
-### 3. Initialize and Seed the Database
-Run the initialization script:
+### 2. Initialize and Seed the Database
+Run the database initializer script:
 ```bash
-python3 init_db.py
+python3 scripts/init_db.py
+```
+Or via the package CLI:
+```bash
+python3 -m eatwithai init-db
 ```
 This will:
 - Connect to PostgreSQL using your `.env` credentials
-- Run `schema.sql` (creating extensions, tables, constraints, indexes, triggers, and views)
-- Run `seed_data.sql` (populating sample records and synchronizing ID sequences)
+- Run `sql/schema.sql` (creating extensions, tables, constraints, indexes, triggers, and views)
+- Run `sql/seed_data.sql` (populating sample records and synchronizing ID sequences)
 - Print a summary verification of all tables, views, and reservation logic
+
+### 3. Launch the AI Reservation Chatbot
+Start the interactive streaming chatbot:
+```bash
+python3 scripts/run_chatbot.py
+```
+Or via the package CLI:
+```bash
+python3 -m eatwithai chat
+```
+
+### 4. Check System Status
+Verify database connectivity and environment configuration anytime:
+```bash
+python3 -m eatwithai status
+```
+
+---
+
+## 🧪 Running Automated Tests
+
+Run the complete test suite with `unittest`:
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -p "test_*.py"
+```
+Or with `pytest`:
+```bash
+pytest
+```
 
 ---
 
@@ -99,8 +158,8 @@ This will:
 ## 💻 Python Usage Example
 
 ```python
-from database import get_connection, create_booking, get_available_tables
 from datetime import datetime
+from eatwithai.db import get_connection, create_booking, get_available_tables
 
 with get_connection() as conn:
     # 1. Check table availability for an upcoming slot
@@ -125,9 +184,7 @@ with get_connection() as conn:
 
 ---
 
-## 🤖 Chatbot Tools (`chatbot_tools.py`)
-
-A set of specialized functions ready for conversational AI agents (OpenAI function calling, Anthropic tool use, LangChain, or custom bots):
+## 🤖 Chatbot Tools (`eatwithai.chatbot.tools`)
 
 | Function | Purpose |
 | :--- | :--- |
@@ -140,13 +197,13 @@ A set of specialized functions ready for conversational AI agents (OpenAI functi
 | **`cancel_booking_reservation(booking_id, phone_or_email)`** | Verifies ownership and cancels a booking. |
 | **`get_booking_info(booking_id)`** | Retrieves details of an existing reservation. |
 
-Includes pre-built OpenAI-compatible tool definitions in **`CHATBOT_TOOL_DEFINITIONS`**.
+Includes pre-built OpenAI-compatible tool definitions in **`CHATBOT_TOOL_DEFINITIONS`** (`eatwithai.chatbot.schemas`).
 
 ---
 
-## 🛡️ Gemini AI Chatbot & Security Guardrails (`gemini_chatbot.py`)
+## 🛡️ Gemini AI Chatbot & Security Guardrails (`eatwithai.security`)
 
-A fully-featured conversational AI reservation host powered by **Google Gemini** (`gemini-2.5-flash` / `gemini-2.0-flash`), engineered with defense-in-depth protection against prompt injection, jailbreaking, and data leakage.
+A conversational AI reservation host powered by **Google Gemini**, engineered with defense-in-depth protection against prompt injection, jailbreaking, and data leakage.
 
 ### Security Layers:
 1. **Deterministic Injection Pre-Filter (`security.py`)**:
@@ -157,18 +214,3 @@ A fully-featured conversational AI reservation host powered by **Google Gemini**
    The bot is strictly prohibited by system rules from invoking `create_booking_reservation` without first presenting a full summary and receiving explicit user confirmation.
 4. **Input Sanitization & Length Limits**:
    Normalizes whitespace, removes non-printable control characters, and caps message lengths at 600 characters to prevent buffer overflow/token flood attacks.
-
-### Running the Gemini Chatbot:
-```bash
-# 1. Install dependencies
-pip install -r requirements.txt
-
-# 2. Add your Gemini API key in .env
-# GEMINI_API_KEY=AIzaSy...
-
-# 3. Launch interactive chat in terminal
-python3 gemini_chatbot.py
-```
-
-
-

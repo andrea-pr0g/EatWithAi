@@ -22,7 +22,8 @@ from functools import wraps
 from typing import Optional, List, Dict, Any
 import uuid
 
-from database import get_connection, get_dining_duration
+from eatwithai.db import get_connection, get_dining_duration
+from eatwithai.chatbot.schemas import CHATBOT_TOOL_DEFINITIONS
 
 
 # ============================================================================

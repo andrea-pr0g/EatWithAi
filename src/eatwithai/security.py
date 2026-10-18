@@ -6,7 +6,7 @@ System Prompt Leakage, and Data Manipulation.
 
 import re
 import html
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional
 
 # Maximum allowed character length for a single customer message
 MAX_MESSAGE_LENGTH = 600

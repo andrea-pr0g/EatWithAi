@@ -1,14 +1,33 @@
 """
-Configuration module for loading PostgreSQL credentials from .env or environment variables.
-Provides a zero-dependency fallback parser if python-dotenv is not installed yet.
+Configuration module for EatWithAi.
+Loads environment variables, manages database credentials, Gemini settings,
+and resolves canonical file paths across the repository.
 """
 
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
-BASE_DIR = Path(__file__).parent
-ENV_PATH = BASE_DIR / ".env"
+# Canonical path resolution
+PACKAGE_DIR = Path(__file__).resolve().parent
+SRC_DIR = PACKAGE_DIR.parent
+PROJECT_ROOT = SRC_DIR.parent
+
+# SQL directory and files
+SQL_DIR = PROJECT_ROOT / "sql"
+SCHEMA_PATH = SQL_DIR / "schema.sql"
+SEED_PATH = SQL_DIR / "seed_data.sql"
+
+# Locate .env file (prioritizes explicit env var, then project root, then cwd)
+ENV_VAR_PATH = os.getenv("ENV_FILE")
+if ENV_VAR_PATH and Path(ENV_VAR_PATH).exists():
+    ENV_PATH = Path(ENV_VAR_PATH).resolve()
+elif (PROJECT_ROOT / ".env").exists():
+    ENV_PATH = PROJECT_ROOT / ".env"
+elif (Path.cwd() / ".env").exists():
+    ENV_PATH = Path.cwd() / ".env"
+else:
+    ENV_PATH = PROJECT_ROOT / ".env"
 
 
 def load_env_file(env_file: Path = ENV_PATH) -> None:
@@ -36,7 +55,7 @@ def load_env_file(env_file: Path = ENV_PATH) -> None:
                     os.environ[key] = val
 
 
-# Load credentials upon import
+# Automatically load environment variables upon import
 load_env_file()
 
 
@@ -71,4 +90,3 @@ def get_gemini_config() -> Dict[str, str]:
         "api_key": os.getenv("GEMINI_API_KEY", "").strip(),
         "model": os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip(),
     }
-

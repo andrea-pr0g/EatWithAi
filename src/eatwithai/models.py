@@ -3,7 +3,7 @@ Data models representing the restaurant database entities using Python dataclass
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, date, time
+from datetime import datetime
 from typing import Optional, List
 
 

@@ -14,9 +14,18 @@ venv/
 env/
 .venv/
 
-# SQLite WAL and SHM temporary files
+# Build & Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database files
 *.db-shm
 *.db-wal
-
-# SQLite database file (can be regenerated with `python3 init_db.py`)
 restaurant.db

@@ -1,28 +1,25 @@
-#!/usr/bin/env python3
 """
-CLI script to initialize and seed the PostgreSQL Restaurant database.
-Reads connection credentials from .env and applies schema.sql and seed_data.sql.
+Unified Command-Line Interface for EatWithAi.
+Provides entry points for database initialization and launching the chatbot.
 """
 
 import sys
+import argparse
 from datetime import datetime
-from config import get_db_config, ENV_PATH
 
-try:
-    from database import (
-        get_connection,
-        init_db,
-        seed_db,
-        get_dining_duration,
-        get_available_tables,
-        check_psycopg2_installed,
-    )
-except ImportError as e:
-    print(e)
-    sys.exit(1)
+from eatwithai.config import get_db_config, get_gemini_config, ENV_PATH
+from eatwithai.db import (
+    get_connection,
+    init_db,
+    seed_db,
+    get_dining_duration,
+    get_available_tables,
+    check_psycopg2_installed,
+)
 
 
-def main():
+def init_db_main():
+    """Initializes and seeds the PostgreSQL database."""
     cfg = get_db_config()
     print("=" * 65)
     print(" RESTAURANT DATABASE INITIALIZER (PostgreSQL) ")
@@ -55,10 +52,10 @@ def main():
         sys.exit(1)
 
     with conn:
-        print("  * Initializing schema (schema.sql)...")
+        print("  * Initializing schema (sql/schema.sql)...")
         init_db()
 
-        print("  * Seeding sample data (seed_data.sql)...")
+        print("  * Seeding sample data (sql/seed_data.sql)...")
         seed_db()
 
         print("\n" + "=" * 65)
@@ -66,7 +63,6 @@ def main():
         print("=" * 65)
 
         with conn.cursor() as cur:
-            # Table counts
             tables = [
                 "customers",
                 "tables",
@@ -83,47 +79,85 @@ def main():
                 count = cur.fetchone()["cnt"]
                 print(f"  {table:20s}: {count:3d} records")
 
-            # Dining rules
             print("\n--- Dining Rules (Stay Duration by Party Size) ---")
             cur.execute("SELECT party_size_from, party_size_to, duration_minutes, description FROM dining_rules ORDER BY party_size_from;")
             for row in cur.fetchall():
                 print(f"  Party {row['party_size_from']}-{row['party_size_to']:2d} people -> {row['duration_minutes']:3d} min ({row['description']})")
 
-            # Tables & Combinations
             print("\n--- Tables & Combinable Adjacencies ---")
             cur.execute("SELECT table_id, name, seats_min, seats_max, area, combinable_with FROM v_tables_with_combinations ORDER BY table_id;")
             for row in cur.fetchall():
                 print(f"  [{row['area']:12s}] {row['name']} (seats: {row['seats_min']}-{row['seats_max']}) | Combinable with: {row['combinable_with']}")
 
-            # Bookings Overview
-            print("\n--- Current Bookings Sample ---")
-            cur.execute(
-                """
-                SELECT booking_id, customer_name, party_size, start_time, end_time, 
-                       duration_minutes, status, source, assigned_tables
-                FROM v_booking_details
-                ORDER BY start_time ASC;
-                """
-            )
-            for row in cur.fetchall():
-                print(
-                    f"  [{row['status'].upper():9s}] {row['start_time']} -> {row['end_time']} "
-                    f"({int(row['duration_minutes'])}m) | Party of {row['party_size']} | {row['customer_name']:18s} "
-                    f"| Tables: {row['assigned_tables']} | Source: {row['source']}"
-                )
-
-        # Logic test
         print("\n--- Python Logic Verification ---")
         test_party = 4
         duration = get_dining_duration(conn, test_party)
         print(f"  * Looked up duration rule for party of {test_party}: {duration} minutes")
 
-        test_start = datetime(2026, 10, 19, 19, 30)
-        test_end = datetime(2026, 10, 19, 21, 15)
+        test_start = datetime.now().replace(hour=19, minute=30, second=0, microsecond=0)
+        test_end = test_start.replace(hour=21, minute=15)
         avail = get_available_tables(conn, test_start, test_end, area="indoor")
         print(f"  * Available indoor tables on {test_start.strftime('%Y-%m-%d %H:%M')}: {[t['name'] for t in avail]}")
 
     print("\n[SUCCESS] PostgreSQL setup is complete and ready for Python development.\n")
+
+
+def status_main():
+    """Checks and prints system configuration and connectivity status."""
+    db_cfg = get_db_config()
+    gemini_cfg = get_gemini_config()
+    print("=" * 65)
+    print(" EATWITHAI SYSTEM STATUS ")
+    print("=" * 65)
+    print(f"Config path        : {ENV_PATH}")
+    print(f"PostgreSQL target  : {db_cfg['user']}@{db_cfg['host']}:{db_cfg['port']}/{db_cfg['dbname']}")
+    print(f"Gemini Model       : {gemini_cfg['model']}")
+    print(f"Gemini Key set     : {'Yes' if gemini_cfg['api_key'] else 'No'}")
+    print("-" * 65)
+
+    print("Checking database connection...")
+    try:
+        conn = get_connection()
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS total FROM bookings;")
+            bookings_count = cur.fetchone()["total"]
+        conn.close()
+        print(f"[OK] PostgreSQL is reachable. Total bookings recorded: {bookings_count}")
+    except Exception as err:
+        print(f"[WARN] Database connection failed: {err}")
+
+    print("=" * 65)
+
+
+def main():
+    """Main CLI entry point."""
+    parser = argparse.ArgumentParser(
+        description="EatWithAi - AI Restaurant Reservation Platform",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # init-db command
+    subparsers.add_parser("init-db", help="Initialize and seed PostgreSQL database")
+
+    # chat command
+    subparsers.add_parser("chat", help="Start interactive AI reservation chatbot")
+
+    # status command
+    subparsers.add_parser("status", help="Show system configuration and connection status")
+
+    args = parser.parse_args()
+
+    if args.command == "init-db":
+        init_db_main()
+    elif args.command == "chat":
+        from eatwithai.chatbot.agent import run_cli
+        run_cli()
+    elif args.command == "status":
+        status_main()
+    else:
+        # Default to printing help or running chat if no command
+        parser.print_help()
 
 
 if __name__ == "__main__":
