@@ -10,6 +10,7 @@ import {
   RotateCcw,
   ShieldCheck
 } from 'lucide-react';
+import MarkdownMessage from './MarkdownMessage';
 
 export default function FloatingChatWidget({ 
   messages, 
@@ -119,7 +120,9 @@ export default function FloatingChatWidget({
                       : 'bg-cosmos-900 border border-white/10 text-slate-200 rounded-tl-none'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <div className="text-xs">
+                    <MarkdownMessage content={msg.content} isBot={msg.role !== 'user'} />
+                  </div>
                 </div>
               </div>
             ))}

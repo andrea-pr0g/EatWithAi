@@ -17,6 +17,7 @@ import {
   UtensilsCrossed,
   Info
 } from 'lucide-react';
+import MarkdownMessage from './MarkdownMessage';
 
 export default function ChatbotSection({ 
   messages, 
@@ -59,40 +60,6 @@ export default function ChatbotSection({
     { label: "Private Dining Room", prompt: "How many guests can the Private Room accommodate for a banquet?" },
     { label: "Gluten-Free & Vegan", prompt: "Which dishes on your menu are gluten-free or vegan?" },
   ];
-
-  // Helper to format bot markdown text with simple bold, list bullets and linebreaks
-  const renderFormattedText = (content) => {
-    const lines = content.split('\n');
-    return lines.map((line, lineIdx) => {
-      // Check for bullet line
-      const isBullet = line.trim().startsWith('* ') || line.trim().startsWith('- ');
-      const cleanLine = isBullet ? line.trim().substring(2) : line;
-
-      // Simple regex for bold **text**
-      const parts = cleanLine.split(/(\*\*.*?\*\*)/g);
-
-      const formattedLine = parts.map((part, pIdx) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={pIdx} className="text-cyan-300 font-semibold">{part.slice(2, -2)}</strong>;
-        }
-        return part;
-      });
-
-      if (isBullet) {
-        return (
-          <li key={lineIdx} className="ml-4 list-disc text-slate-200 my-1">
-            {formattedLine}
-          </li>
-        );
-      }
-
-      return (
-        <p key={lineIdx} className={line.trim() === '' ? 'h-2' : 'my-1'}>
-          {formattedLine}
-        </p>
-      );
-    });
-  };
 
   return (
     <section id="chatbot" className="py-20 relative overflow-hidden bg-cosmos-900/60 border-y border-white/5">
@@ -214,9 +181,9 @@ export default function ChatbotSection({
                     )}
                   </div>
 
-                  {/* Render Message Body */}
+                  {/* Render Message Body with marked & dompurify */}
                   <div className="text-sm">
-                    {renderFormattedText(msg.content)}
+                    <MarkdownMessage content={msg.content} isBot={msg.role !== 'user'} />
                     {/* Blinking cursor for actively streaming bot message */}
                     {isStreaming && idx === messages.length - 1 && msg.role === 'bot' && (
                       <span className="animate-cursor" />
