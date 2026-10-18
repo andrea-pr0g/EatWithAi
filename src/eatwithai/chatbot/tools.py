@@ -22,8 +22,16 @@ from functools import wraps
 from typing import Optional, List, Dict, Any
 import uuid
 
-from eatwithai.db import get_connection, get_dining_duration
+from eatwithai.db import (
+    get_connection,
+    get_dining_duration,
+    get_menu_categories,
+    get_menu_items,
+    get_menu_item_by_name,
+    search_menu,
+)
 from eatwithai.chatbot.schemas import CHATBOT_TOOL_DEFINITIONS
+
 
 
 # ============================================================================
@@ -960,8 +968,96 @@ def get_booking_info(booking_id: str) -> Dict[str, Any]:
 
 
 # ============================================================================
+# Tool 10: Get Restaurant Menu
+# ============================================================================
+
+@json_safe_tool
+def get_restaurant_menu(
+    category: Optional[str] = None,
+    dietary_preference: Optional[str] = None,
+    max_price: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    Retrieves the restaurant's authentic American food menu.
+    Allows filtering by menu category (e.g. 'Appetizers & Starters', 'Handcrafted Burgers',
+    'Sandwiches & Subs', 'Texas & Southern BBQ', 'Steaks & Prime Cuts', 'Classic Sides',
+    'Handcrafted Desserts', 'Beverages & Hand-Spun Shakes'), dietary preference
+    ('vegetarian', 'vegan', 'gluten-free'), or maximum price.
+
+    Args:
+        category: Optional category name or keyword (e.g. 'Burgers', 'Steaks', 'Desserts').
+        dietary_preference: Optional dietary filter ('vegetarian', 'vegan', 'gluten-free').
+        max_price: Optional maximum price in dollars.
+
+    Returns:
+        dict: Available categories, matching items, count, and status message.
+    """
+    is_veg = True if dietary_preference and "veg" in dietary_preference.lower() and "vegan" not in dietary_preference.lower() else None
+    is_vegan = True if dietary_preference and "vegan" in dietary_preference.lower() else None
+    is_gf = True if dietary_preference and ("gluten" in dietary_preference.lower() or "gf" in dietary_preference.lower()) else None
+
+    with get_connection() as conn:
+        categories = get_menu_categories(conn)
+        items = get_menu_items(
+            conn,
+            category=category,
+            is_vegetarian=is_veg,
+            is_vegan=is_vegan,
+            is_gluten_free=is_gf,
+            max_price=max_price,
+            only_available=True,
+        )
+
+    return {
+        "status": "success",
+        "category_filter": category or "All Categories",
+        "dietary_filter": dietary_preference or "None",
+        "total_items_found": len(items),
+        "available_categories": [c["name"] for c in categories],
+        "items": items,
+        "message": f"Retrieved {len(items)} American food menu item(s)."
+    }
+
+
+# ============================================================================
+# Tool 11: Search Menu Items
+# ============================================================================
+
+@json_safe_tool
+def search_menu_items(search_query: str) -> Dict[str, Any]:
+    """
+    Searches the American food menu by keyword (e.g., 'burger', 'brisket', 'wings',
+    'steak', 'shake', 'cheesecake', 'truffle', 'ribs', 'bacon', 'mac & cheese').
+
+    Args:
+        search_query: Dish name, ingredient, or keyword to search for.
+
+    Returns:
+        dict: Matching dishes with descriptions, prices, dietary information, and allergens.
+    """
+    if not search_query or not search_query.strip():
+        return {
+            "status": "error",
+            "message": "Please provide a search keyword or dish name.",
+            "items": []
+        }
+
+    with get_connection() as conn:
+        results = search_menu(conn, search_query.strip())
+
+    return {
+        "status": "success",
+        "search_query": search_query.strip(),
+        "total_matches": len(results),
+        "items": results,
+        "message": f"Found {len(results)} item(s) matching '{search_query.strip()}'."
+    }
+
+
+# ============================================================================
 # OpenAI / LLM Function Calling Schema Definitions
 # ============================================================================
+
 
 CHATBOT_TOOL_DEFINITIONS = [
     {
@@ -1091,6 +1187,49 @@ CHATBOT_TOOL_DEFINITIONS = [
                 "required": ["booking_id"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_restaurant_menu",
+            "description": "Retrieves the restaurant's authentic American food menu, including categories, dish descriptions, prices, spicy levels, and dietary information (vegetarian, vegan, gluten-free).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "description": "Optional category filter (e.g. 'Burgers', 'BBQ', 'Steaks', 'Starters', 'Sides', 'Desserts', 'Beverages')"
+                    },
+                    "dietary_preference": {
+                        "type": "string",
+                        "enum": ["vegetarian", "vegan", "gluten-free"],
+                        "description": "Optional dietary filter"
+                    },
+                    "max_price": {
+                        "type": "number",
+                        "description": "Optional maximum price filter"
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_menu_items",
+            "description": "Searches American menu items by keyword, dish name, ingredient, or allergen (e.g. 'ribeye', 'wings', 'cheeseburger', 'brisket', 'shake', 'fries').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search_query": {
+                        "type": "string",
+                        "description": "Dish name, ingredient, or food term to search for"
+                    }
+                },
+                "required": ["search_query"]
+            }
+        }
     }
 ]
+
 

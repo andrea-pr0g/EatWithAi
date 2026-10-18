@@ -148,10 +148,13 @@ pytest
 | **`dining_rules`** | `SERIAL` (`rule_id`) | `party_size_from`, `party_size_to`, `duration_minutes`, `description` |
 | **`bookings`** | `UUID` (`gen_random_uuid()`) | `customer_id` (UUID FK), `start_time`, `end_time` (TIMESTAMPTZ), `party_size`, `status` (`pending`, `confirmed`, `cancelled`, `arrived`, `no_show`), `source` (`chatbot`, `phone`, `staff`, `website`), `updated_at` (auto-updated by trigger) |
 | **`booking_tables`** | `(booking_id, table_id)` | Maps reservations to one or multiple tables |
+| **`menu_categories`** | `SERIAL` (`category_id`) | `name` (UNIQUE, e.g. 'Handcrafted Burgers', 'Texas & Southern BBQ'), `description`, `display_order` |
+| **`menu_items`** | `SERIAL` (`item_id`) | `category_id` (FK), `name` (UNIQUE), `description`, `price` (NUMERIC), `calories`, `spicy_level` (0-3), `is_vegetarian`, `is_vegan`, `is_gluten_free`, `allergens`, `is_available`, `updated_at` (auto-updated by trigger) |
 
 ### PostgreSQL Views
 * **`v_tables_with_combinations`**: Shows each table along with an aggregated `combinable_with` column built with `STRING_AGG`.
 * **`v_booking_details`**: Joined report of bookings with customer contact details, assigned tables, stay duration in minutes (`EXTRACT(EPOCH FROM ...)`), and capacity.
+* **`v_menu_details`**: Comprehensive overview of American food menu items joined with category name, dietary flags, spicy level, and pricing.
 
 ---
 
@@ -159,7 +162,7 @@ pytest
 
 ```python
 from datetime import datetime
-from eatwithai.db import get_connection, create_booking, get_available_tables
+from eatwithai.db import get_connection, create_booking, get_available_tables, get_menu_items, search_menu
 
 with get_connection() as conn:
     # 1. Check table availability for an upcoming slot
@@ -168,7 +171,15 @@ with get_connection() as conn:
     tables = get_available_tables(conn, start, end, area="indoor")
     print("Available tables:", [t["name"] for t in tables])
 
-    # 2. Book a table (duration automatically calculated from dining_rules)
+    # 2. Query American menu items by category or dietary preference
+    burgers = get_menu_items(conn, category="Burgers")
+    print("Handcrafted Burgers:", [b["name"] for b in burgers])
+
+    # 3. Search menu items
+    brisket = search_menu(conn, "brisket")
+    print("BBQ Brisket:", brisket[0]["name"], f"${brisket[0]['price']}")
+
+    # 4. Book a table (duration automatically calculated from dining_rules)
     customer_id = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
     booking_id = create_booking(
         conn=conn,
@@ -193,11 +204,14 @@ with get_connection() as conn:
 | **`find_available_slots(date_str, party_size, preferred_time=None)`** | Searches for open time slots throughout the day if requested time is taken. |
 | **`get_restaurant_schedule(date_str=None)`** | Returns weekly hours and holiday closures (or schedule for a specific date). |
 | **`get_dining_duration_for_party(party_size)`** | Looks up allowed stay duration based on party size. |
+| **`get_restaurant_menu(category=None, dietary_preference=None, max_price=None)`** | Returns the authentic American food menu, supporting category, dietary, and budget filtering. |
+| **`search_menu_items(search_query)`** | Searches menu items by dish name, ingredient, keyword, or allergen. |
 | **`create_booking_reservation(...)`** | End-to-end booking tool that creates the customer and assigns the best table. |
 | **`cancel_booking_reservation(booking_id, phone_or_email)`** | Verifies ownership and cancels a booking. |
 | **`get_booking_info(booking_id)`** | Retrieves details of an existing reservation. |
 
 Includes pre-built OpenAI-compatible tool definitions in **`CHATBOT_TOOL_DEFINITIONS`** (`eatwithai.chatbot.schemas`).
+
 
 ---
 

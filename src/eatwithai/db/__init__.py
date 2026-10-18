@@ -11,6 +11,10 @@ from eatwithai.db.repository import (
     create_customer,
     create_booking,
     get_available_tables,
+    get_menu_categories,
+    get_menu_items,
+    get_menu_item_by_name,
+    search_menu,
 )
 
 __all__ = [
@@ -22,4 +26,9 @@ __all__ = [
     "create_customer",
     "create_booking",
     "get_available_tables",
+    "get_menu_categories",
+    "get_menu_items",
+    "get_menu_item_by_name",
+    "search_menu",
 ]
+

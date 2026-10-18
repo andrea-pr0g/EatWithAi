@@ -130,5 +130,48 @@ CHATBOT_TOOL_DEFINITIONS = [
                 "required": ["booking_id"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_restaurant_menu",
+            "description": "Retrieves the restaurant's authentic American food menu, including categories, dish descriptions, prices, spicy levels, and dietary information (vegetarian, vegan, gluten-free).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "description": "Optional category filter (e.g. 'Burgers', 'BBQ', 'Steaks', 'Starters', 'Sides', 'Desserts', 'Beverages')"
+                    },
+                    "dietary_preference": {
+                        "type": "string",
+                        "enum": ["vegetarian", "vegan", "gluten-free"],
+                        "description": "Optional dietary filter"
+                    },
+                    "max_price": {
+                        "type": "number",
+                        "description": "Optional maximum price filter"
+                    }
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_menu_items",
+            "description": "Searches American menu items by keyword, dish name, ingredient, or allergen (e.g. 'ribeye', 'wings', 'cheeseburger', 'brisket', 'shake', 'fries').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search_query": {
+                        "type": "string",
+                        "description": "Dish name, ingredient, or food term to search for"
+                    }
+                },
+                "required": ["search_query"]
+            }
+        }
     }
 ]
+

@@ -114,6 +114,40 @@ CREATE TABLE IF NOT EXISTS booking_tables (
 -- ----------------------------------------------------------------------------
 -- Indexes for Performance
 -- ----------------------------------------------------------------------------
+-- ----------------------------------------------------------------------------
+-- 8. Menu Categories
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS menu_categories (
+    category_id     SERIAL PRIMARY KEY,
+    name            VARCHAR(50) NOT NULL UNIQUE,          -- e.g. 'Appetizers & Starters', 'Handcrafted Burgers'
+    description     TEXT,
+    display_order   INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ----------------------------------------------------------------------------
+-- 9. Menu Items
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS menu_items (
+    item_id         SERIAL PRIMARY KEY,
+    category_id     INTEGER NOT NULL REFERENCES menu_categories(category_id) ON DELETE CASCADE,
+    name            VARCHAR(100) NOT NULL UNIQUE,
+    description     TEXT NOT NULL,
+    price           NUMERIC(6, 2) NOT NULL CHECK (price >= 0),
+    is_available    BOOLEAN NOT NULL DEFAULT TRUE,
+    calories        INTEGER CHECK (calories >= 0),
+    spicy_level     INTEGER NOT NULL DEFAULT 0 CHECK (spicy_level BETWEEN 0 AND 3),
+    is_vegetarian   BOOLEAN NOT NULL DEFAULT FALSE,
+    is_vegan        BOOLEAN NOT NULL DEFAULT FALSE,
+    is_gluten_free  BOOLEAN NOT NULL DEFAULT FALSE,
+    allergens       TEXT,                                 -- e.g. 'Dairy, Gluten, Shellfish'
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ----------------------------------------------------------------------------
+-- Indexes for Performance
+-- ----------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
 CREATE INDEX IF NOT EXISTS idx_tables_area ON tables(area);
@@ -124,13 +158,23 @@ CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_start_end ON bookings(start_time, end_time);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
 CREATE INDEX IF NOT EXISTS idx_booking_tables_table ON booking_tables(table_id);
+CREATE INDEX IF NOT EXISTS idx_menu_items_category ON menu_items(category_id);
+CREATE INDEX IF NOT EXISTS idx_menu_items_available ON menu_items(is_available);
+CREATE INDEX IF NOT EXISTS idx_menu_items_dietary ON menu_items(is_vegetarian, is_vegan, is_gluten_free);
+CREATE INDEX IF NOT EXISTS idx_menu_categories_order ON menu_categories(display_order);
 
 -- ----------------------------------------------------------------------------
--- Trigger: Keep updated_at synchronized on booking update
+-- Triggers: Keep updated_at synchronized on updates
 -- ----------------------------------------------------------------------------
 DROP TRIGGER IF EXISTS trg_bookings_updated_at ON bookings;
 CREATE TRIGGER trg_bookings_updated_at
 BEFORE UPDATE ON bookings
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS trg_menu_items_updated_at ON menu_items;
+CREATE TRIGGER trg_menu_items_updated_at
+BEFORE UPDATE ON menu_items
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
@@ -182,3 +226,25 @@ GROUP BY
     b.booking_id, c.customer_id, c.name, c.surname, c.phone, c.email, 
     b.party_size, b.start_time, b.end_time, b.status, b.source, 
     b.special_requests, b.created_at;
+
+-- Detailed menu items overview with category and dietary classification
+CREATE OR REPLACE VIEW v_menu_details AS
+SELECT 
+    mi.item_id,
+    mi.name,
+    mc.name AS category_name,
+    mc.category_id,
+    mi.description,
+    mi.price,
+    mi.calories,
+    mi.spicy_level,
+    mi.is_vegetarian,
+    mi.is_vegan,
+    mi.is_gluten_free,
+    mi.allergens,
+    mi.is_available,
+    mc.display_order AS category_order
+FROM menu_items mi
+JOIN menu_categories mc ON mi.category_id = mc.category_id
+ORDER BY mc.display_order ASC, mi.item_id ASC;
+

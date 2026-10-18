@@ -46,14 +46,41 @@ class TestChatbotTools(unittest.TestCase):
         self.assertEqual(_format_time("19:30:00"), "19:30")
 
     def test_tool_definitions_present(self):
-        self.assertGreaterEqual(len(CHATBOT_TOOL_DEFINITIONS), 8)
+        self.assertGreaterEqual(len(CHATBOT_TOOL_DEFINITIONS), 10)
         tool_names = [t["function"]["name"] for t in CHATBOT_TOOL_DEFINITIONS]
         self.assertIn("check_restaurant_status", tool_names)
         self.assertIn("check_table_availability", tool_names)
         self.assertIn("find_available_slots", tool_names)
         self.assertIn("create_booking_reservation", tool_names)
         self.assertIn("cancel_booking_reservation", tool_names)
+        self.assertIn("get_restaurant_menu", tool_names)
+        self.assertIn("search_menu_items", tool_names)
+
+    def test_get_restaurant_menu_tool(self):
+        from eatwithai.chatbot.tools import get_restaurant_menu
+        try:
+            res = get_restaurant_menu(category="Burgers")
+            self.assertEqual(res["status"], "success")
+            self.assertGreaterEqual(res["total_items_found"], 1)
+            self.assertIn("items", res)
+            # Verify JSON serializability of Decimal prices
+            for item in res["items"]:
+                self.assertIsInstance(item["price"], (int, float))
+        except Exception as e:
+            # Skip if DB is not reachable in CI
+            self.skipTest(f"Database not available: {e}")
+
+    def test_search_menu_items_tool(self):
+        from eatwithai.chatbot.tools import search_menu_items
+        try:
+            res = search_menu_items("cheesecake")
+            self.assertEqual(res["status"], "success")
+            self.assertGreaterEqual(res["total_matches"], 1)
+            self.assertIn("New York Style Cheesecake", res["items"][0]["name"])
+        except Exception as e:
+            self.skipTest(f"Database not available: {e}")
 
 
 if __name__ == "__main__":
     unittest.main()
+

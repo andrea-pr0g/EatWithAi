@@ -9,7 +9,10 @@ from eatwithai.models import (
     Closure,
     DiningRule,
     Booking,
+    MenuCategory,
+    MenuItem,
 )
+from decimal import Decimal
 
 
 class TestModels(unittest.TestCase):
@@ -54,6 +57,35 @@ class TestModels(unittest.TestCase):
         self.assertEqual(b.status, "confirmed")
         self.assertEqual(b.assigned_tables, ["T04"])
 
+    def test_menu_category_and_item_creation(self):
+        cat = MenuCategory(
+            category_id=2,
+            name="Handcrafted Burgers",
+            description="Prime beef burgers",
+            display_order=2,
+        )
+        self.assertEqual(cat.name, "Handcrafted Burgers")
+        self.assertEqual(cat.display_order, 2)
+
+        item = MenuItem(
+            item_id=7,
+            category_id=2,
+            category_name="Handcrafted Burgers",
+            name="The Classic American Cheeseburger",
+            description="Angus beef patty with American cheese on brioche",
+            price=Decimal("16.50"),
+            calories=890,
+            spicy_level=0,
+            is_vegetarian=False,
+            is_vegan=False,
+            is_gluten_free=False,
+            allergens="Dairy, Gluten, Eggs",
+        )
+        self.assertEqual(item.name, "The Classic American Cheeseburger")
+        self.assertEqual(item.price, Decimal("16.50"))
+        self.assertFalse(item.is_vegetarian)
+
 
 if __name__ == "__main__":
     unittest.main()
+

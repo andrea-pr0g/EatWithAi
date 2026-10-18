@@ -4,6 +4,7 @@ Data models representing the restaurant database entities using Python dataclass
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional, List
 
 
@@ -69,3 +70,32 @@ class Booking:
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     assigned_tables: List[str] = field(default_factory=list)
+
+
+@dataclass
+class MenuCategory:
+    category_id: int
+    name: str
+    description: Optional[str] = None
+    display_order: int = 0
+    created_at: Optional[datetime] = None
+
+
+@dataclass
+class MenuItem:
+    item_id: int
+    category_id: int
+    name: str
+    description: str
+    price: Decimal
+    category_name: Optional[str] = None
+    is_available: bool = True
+    calories: Optional[int] = None
+    spicy_level: int = 0
+    is_vegetarian: bool = False
+    is_vegan: bool = False
+    is_gluten_free: bool = False
+    allergens: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+

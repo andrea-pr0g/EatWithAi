@@ -170,3 +170,119 @@ def get_available_tables(
     with conn.cursor() as cur:
         cur.execute(query, params)
         return [dict(row) for row in cur.fetchall()]
+
+
+def get_menu_categories(conn) -> List[Dict[str, Any]]:
+    """
+    Retrieves all menu categories ordered by display_order.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT category_id, name, description, display_order, created_at
+            FROM menu_categories
+            ORDER BY display_order ASC;
+            """
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def get_menu_items(
+    conn,
+    category: Optional[str] = None,
+    is_vegetarian: Optional[bool] = None,
+    is_vegan: Optional[bool] = None,
+    is_gluten_free: Optional[bool] = None,
+    max_price: Optional[float] = None,
+    only_available: bool = True,
+) -> List[Dict[str, Any]]:
+    """
+    Queries menu items with optional category, dietary, and budget filtering.
+    """
+    query = """
+        SELECT 
+            item_id, name, category_name, category_id, description,
+            price, calories, spicy_level, is_vegetarian, is_vegan,
+            is_gluten_free, allergens, is_available, category_order
+        FROM v_menu_details
+        WHERE 1=1
+    """
+    params: List[Any] = []
+
+    if only_available:
+        query += " AND is_available = TRUE"
+
+    if category:
+        query += " AND (LOWER(category_name) LIKE LOWER(%s) OR category_id::TEXT = %s)"
+        params.extend([f"%{category}%", category])
+
+    if is_vegetarian is not None:
+        query += " AND is_vegetarian = %s"
+        params.append(is_vegetarian)
+
+    if is_vegan is not None:
+        query += " AND is_vegan = %s"
+        params.append(is_vegan)
+
+    if is_gluten_free is not None:
+        query += " AND is_gluten_free = %s"
+        params.append(is_gluten_free)
+
+    if max_price is not None:
+        query += " AND price <= %s"
+        params.append(max_price)
+
+    query += " ORDER BY category_order ASC, price ASC;"
+
+    with conn.cursor() as cur:
+        cur.execute(query, params)
+        return [dict(row) for row in cur.fetchall()]
+
+
+def get_menu_item_by_name(conn, name: str) -> Optional[Dict[str, Any]]:
+    """
+    Looks up a single menu item by case-insensitive name match.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 
+                item_id, name, category_name, category_id, description,
+                price, calories, spicy_level, is_vegetarian, is_vegan,
+                is_gluten_free, allergens, is_available, category_order
+            FROM v_menu_details
+            WHERE LOWER(name) = LOWER(%s)
+            LIMIT 1;
+            """,
+            (name.strip(),)
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def search_menu(conn, search_term: str) -> List[Dict[str, Any]]:
+    """
+    Full-text / pattern search across menu item names, descriptions, and category names.
+    """
+    term = f"%{search_term.strip()}%"
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 
+                item_id, name, category_name, category_id, description,
+                price, calories, spicy_level, is_vegetarian, is_vegan,
+                is_gluten_free, allergens, is_available, category_order
+            FROM v_menu_details
+            WHERE is_available = TRUE
+              AND (
+                  name ILIKE %s
+                  OR description ILIKE %s
+                  OR category_name ILIKE %s
+                  OR allergens ILIKE %s
+              )
+            ORDER BY category_order ASC, price ASC;
+            """,
+            (term, term, term, term)
+        )
+        return [dict(row) for row in cur.fetchall()]
+

@@ -37,7 +37,10 @@ AVAILABLE_TOOLS = {
     "create_booking_reservation": tools.create_booking_reservation,
     "cancel_booking_reservation": tools.cancel_booking_reservation,
     "get_booking_info": tools.get_booking_info,
+    "get_restaurant_menu": tools.get_restaurant_menu,
+    "search_menu_items": tools.search_menu_items,
 }
+
 
 
 def init_gemini_client():
@@ -122,33 +125,6 @@ class GeminiRestaurantChatbot:
         """
         return "".join(self.process_message_stream(user_message))
 
-    def _stream_google_genai(self, delimited_message: str) -> Generator[str, None, None]:
-        """Streams conversation chunks in real time using google-genai SDK."""
-        from google.genai import types
-
-        # Package Python functions as tools
-        tool_functions = [
-            tools.check_restaurant_status,
-            tools.check_table_availability,
-            tools.find_available_slots,
-            tools.get_dining_duration_for_party,
-            tools.get_restaurant_schedule,
-            tools.get_restaurant_areas_and_tables,
-            tools.create_booking_reservation,
-            tools.cancel_booking_reservation,
-            tools.get_booking_info,
-        ]
-
-        if not hasattr(self, "_chat_session"):
-            self._chat_session = self.client.chats.create(
-                model=self.model_name,
-                config=types.GenerateContentConfig(
-                    system_instruction=get_system_instruction(),
-                    tools=tool_functions,
-                    temperature=0.0,
-                )
-            )
-
     def _extract_parts_text(self, obj: Any) -> str:
         """Safely extracts text parts from response or chunk without triggering SDK warning."""
         try:
@@ -178,6 +154,8 @@ class GeminiRestaurantChatbot:
             tools.create_booking_reservation,
             tools.cancel_booking_reservation,
             tools.get_booking_info,
+            tools.get_restaurant_menu,
+            tools.search_menu_items,
         ]
 
         if not hasattr(self, "_chat_session"):
@@ -189,6 +167,7 @@ class GeminiRestaurantChatbot:
                     temperature=0.0,
                 )
             )
+
 
         # Try native SDK streaming first
         try:
@@ -246,7 +225,7 @@ class GeminiRestaurantChatbot:
 def run_cli():
     """Interactive CLI chat loop."""
     print("=" * 65)
-    print(" ANTIGRAVITY OSTERIA - GEMINI RESERVATION ASSISTANT ")
+    print(" EatWithAi - GEMINI RESERVATION ASSISTANT ")
     print("=" * 65)
     print("Active Guardrails:")
     print("  [x] Prompt injection & jailbreak regex pre-filtering")

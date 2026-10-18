@@ -11,7 +11,9 @@ TRUNCATE TABLE
     closures,
     opening_shifts,
     dining_rules,
-    customers
+    customers,
+    menu_items,
+    menu_categories
 RESTART IDENTITY CASCADE;
 
 -- ----------------------------------------------------------------------------
@@ -215,3 +217,81 @@ INSERT INTO booking_tables (booking_id, table_id) VALUES
 
 -- Booking 10 -> Table B01 (Bar high-top)
 ('aaaaaaaa-dddd-4000-8000-000000000010', 12);
+
+-- ----------------------------------------------------------------------------
+-- 8. Menu Categories (American Cuisine)
+-- ----------------------------------------------------------------------------
+INSERT INTO menu_categories (category_id, name, description, display_order) VALUES
+(1, 'Appetizers & Starters', 'Crispy wings, loaded skins, and hearty starters to kick off your feast.', 1),
+(2, 'Handcrafted Burgers', 'Prime Angus beef and plant-based burgers smashed or flame-grilled on brioche.', 2),
+(3, 'Sandwiches & Subs', 'Iconic regional American sandwiches piled high with slow-cooked meats and cheeses.', 3),
+(4, 'Texas & Southern BBQ', 'Low-and-slow hardwood smoked meats served with authentic regional glazes and rubs.', 4),
+(5, 'Steaks & Prime Cuts', 'Hand-cut USDA Prime steaks charbroiled to order and basted with garlic herb butter.', 5),
+(6, 'Classic Sides', 'Southern-style comfort sides, seasoned fries, and gourmet skillet sides.', 6),
+(7, 'Handcrafted Desserts', 'Decadent American bakery classics, freshly baked pies, and warm skillet treats.', 7),
+(8, 'Beverages & Hand-Spun Shakes', 'Thick hand-spun milkshakes, craft root beer floats, and refreshing iced teas.', 8);
+
+-- Sync serial sequence for menu_categories
+SELECT setval(pg_get_serial_sequence('menu_categories', 'category_id'), COALESCE(MAX(category_id), 1)) FROM menu_categories;
+
+-- ----------------------------------------------------------------------------
+-- 9. Menu Items (Authentic American Dishes)
+-- ----------------------------------------------------------------------------
+INSERT INTO menu_items (
+    item_id, category_id, name, description, price, is_available, calories, 
+    spicy_level, is_vegetarian, is_vegan, is_gluten_free, allergens
+) VALUES
+-- 1. Appetizers & Starters
+(1, 1, 'Buffalo Chicken Wings', 'Crispy jumbo wings tossed in Frank''s authentic cayenne buffalo sauce, served with crisp celery and blue cheese dip.', 14.99, TRUE, 820, 2, FALSE, FALSE, TRUE, 'Dairy, Celery'),
+(2, 1, 'Loaded Potato Skins', 'Crispy russet potato boats stuffed with melted Wisconsin cheddar, applewood smoked bacon, scallions, and sour cream.', 11.99, TRUE, 650, 0, FALSE, FALSE, TRUE, 'Dairy, Pork'),
+(3, 1, 'Maryland Jumbo Lump Crab Cakes', 'Pan-seared jumbo lump blue crab cakes seasoned with Old Bay spice, served with house remoulade and lemon.', 18.99, TRUE, 520, 0, FALSE, FALSE, FALSE, 'Shellfish, Eggs, Gluten'),
+(4, 1, 'Crispy Golden Mozzarella Sticks', 'Beer-battered Wisconsin whole milk mozzarella sticks fried golden, served with warm house marinara.', 10.50, TRUE, 580, 0, TRUE, FALSE, FALSE, 'Dairy, Gluten'),
+(5, 1, 'New England Clam Chowder', 'Traditional creamy Boston chowder with tender sea clams, Yukon potatoes, celery, and smoky bacon lardons.', 9.50, TRUE, 440, 0, FALSE, FALSE, FALSE, 'Shellfish, Dairy, Gluten'),
+(6, 1, 'Southern Fried Green Tomatoes', 'Heirloom green tomatoes crusted in seasoned cornmeal, topped with pimento cheese and candied bacon relish.', 11.50, TRUE, 480, 0, TRUE, FALSE, FALSE, 'Dairy, Gluten'),
+
+-- 2. Handcrafted Burgers
+(7, 2, 'The Classic American Cheeseburger', 'Half-pound certified Angus beef patty, double melted American cheese, crisp lettuce, tomato, pickles, and secret sauce on brioche.', 16.50, TRUE, 890, 0, FALSE, FALSE, FALSE, 'Dairy, Gluten, Eggs'),
+(8, 2, 'Smokehouse Bacon BBQ Burger', 'Half-pound Angus beef, thick applewood bacon, smoked cheddar, crispy beer-battered onion ring, and sweet Kansas City BBQ sauce.', 18.50, TRUE, 1050, 0, FALSE, FALSE, FALSE, 'Dairy, Gluten'),
+(9, 2, 'Oklahoma Onion Smash Burger', 'Twin seared smashed beef patties pressed with shaved sweet Vidalia onions, American cheese, and yellow mustard aioli on a potato roll.', 15.99, TRUE, 780, 0, FALSE, FALSE, FALSE, 'Dairy, Gluten, Eggs'),
+(10, 2, 'Beyond Meat Plant Smash Burger', 'Plant-based patty with dairy-free vegan cheddar, avocado mash, baby arugula, vine tomato, and vegan garlic herb aioli on a toasted bun.', 17.50, TRUE, 680, 0, TRUE, TRUE, FALSE, 'Gluten'),
+
+-- 3. Sandwiches & Subs
+(11, 3, 'Authentic Philly Cheesesteak', 'Thinly sliced grilled ribeye, sautéed sweet onions, bell peppers, and melted provolone on a warm toasted Amoroso roll.', 17.50, TRUE, 840, 0, FALSE, FALSE, FALSE, 'Dairy, Gluten'),
+(12, 3, 'Nashville Hot Fried Chicken Sandwich', 'Buttermilk fried chicken breast drenched in fiery cayenne pepper oil, topped with creamy slaw and pickles on a brioche bun.', 16.99, TRUE, 880, 2, FALSE, FALSE, FALSE, 'Dairy, Gluten, Eggs'),
+(13, 3, 'NYC Pastrami on Rye', 'Warm, slow-cured black pepper pastrami piled high on Jewish rye bread with spicy deli brown mustard and a kosher pickle.', 19.50, TRUE, 790, 0, FALSE, FALSE, FALSE, 'Gluten, Mustard'),
+(14, 3, 'Hickory Pulled Pork Sandwich', 'Twelve-hour smoked pulled pork shoulder, tangy Carolina gold mustard BBQ sauce, and crunchy coleslaw on a sesame seed bun.', 15.50, TRUE, 720, 0, FALSE, FALSE, FALSE, 'Gluten, Mustard'),
+
+-- 4. Texas & Southern BBQ
+(15, 4, 'St. Louis Smoked Baby Back Ribs', 'Full rack of tender pork ribs slow-smoked over hickory wood, glazed with tangy sweet BBQ sauce, served with warm skillet cornbread.', 27.99, TRUE, 1150, 0, FALSE, FALSE, FALSE, 'Dairy, Gluten'),
+(16, 4, 'Texas Oak-Smoked Beef Brisket', 'USDA Prime beef brisket smoked 14 hours over Texas post oak, sliced thick with peppery bark, pickled jalapeños, and pit mop sauce.', 28.99, TRUE, 980, 1, FALSE, FALSE, TRUE, 'None'),
+(17, 4, 'Southern Buttermilk Fried Chicken Platter', 'Three pieces of crispy golden fried chicken soaked in herb buttermilk brine, served with a hot honey butter biscuit and gravy.', 22.50, TRUE, 1020, 0, FALSE, FALSE, FALSE, 'Dairy, Gluten'),
+
+-- 5. Steaks & Prime Cuts
+(18, 5, 'USDA Prime Ribeye Steak (14 oz)', 'Heavily marbled hand-cut prime ribeye flame-grilled over open coals, topped with roasted garlic-herb butter and sea salt.', 39.99, TRUE, 1100, 0, FALSE, FALSE, TRUE, 'Dairy'),
+(19, 5, 'Center-Cut Filet Mignon (8 oz)', 'Tender oak-grilled center-cut beef tenderloin, served with Cabernet Sauvignon reduction demi-glace and grilled asparagus.', 42.99, TRUE, 760, 0, FALSE, FALSE, TRUE, 'Dairy'),
+(20, 5, 'Kansas City Bone-In Strip (12 oz)', 'Dry-aged bone-in New York strip steak seasoned with coarse sea salt and black peppercorns, charbroiled to temperature.', 36.99, TRUE, 920, 0, FALSE, FALSE, TRUE, 'Dairy'),
+
+-- 6. Classic Sides
+(21, 6, 'Signature Garlic & Herb Fries', 'Crisp hand-cut Idaho russet potatoes tossed in sea salt, roasted garlic oil, and fresh chopped parsley.', 6.50, TRUE, 380, 0, TRUE, TRUE, TRUE, 'None'),
+(22, 6, 'Four-Cheese Truffle Mac & Cheese', 'Cavatappi pasta baked in sharp cheddar, gruyère, fontina, and parmesan Mornay sauce, infused with black truffle oil.', 9.50, TRUE, 620, 0, TRUE, FALSE, FALSE, 'Dairy, Gluten'),
+(23, 6, 'Crispy Sweet Potato Fries', 'Crinkle-cut sweet potatoes fried crisp, served with house honey-cinnamon whipped dipping butter.', 7.50, TRUE, 410, 0, TRUE, FALSE, TRUE, 'Dairy'),
+(24, 6, 'Cast-Iron Skillet Cornbread', 'Sweet golden yellow cornbread baked fresh in cast iron, served warm with whipped wildflower honey butter.', 6.50, TRUE, 390, 0, TRUE, FALSE, FALSE, 'Dairy, Gluten, Eggs'),
+(25, 6, 'Craft Beer-Battered Onion Rings', 'Jumbo sweet Vidalia onion rings soaked in craft IPA batter and fried golden crisp, served with chipotle ranch.', 7.99, TRUE, 460, 0, TRUE, FALSE, FALSE, 'Dairy, Gluten, Eggs'),
+(26, 6, 'Creamy Southern Buttermilk Coleslaw', 'Finely shredded crisp green cabbage and carrots tossed in sweet and tangy buttermilk poppyseed dressing.', 5.00, TRUE, 210, 0, TRUE, FALSE, TRUE, 'Dairy, Eggs'),
+
+-- 7. Handcrafted Desserts
+(27, 7, 'New York Style Cheesecake', 'Tall, rich, and velvety dense cream cheese cake on a graham cracker crust, drizzled with homemade strawberry compote.', 9.50, TRUE, 680, 0, TRUE, FALSE, FALSE, 'Dairy, Gluten, Eggs'),
+(28, 7, 'Warm Honeycrisp Apple Pie à la Mode', 'Spiced Honeycrisp apple slices baked in flaky butter double crust, served warm with Madagascar vanilla bean ice cream.', 8.99, TRUE, 590, 0, TRUE, FALSE, FALSE, 'Dairy, Gluten, Eggs'),
+(29, 7, 'Skillet Double Chocolate Fudge Brownie', 'Warm chocolate fudge brownie baked to order in a mini skillet, topped with vanilla ice cream, hot fudge drizzle, and toasted pecans.', 9.99, TRUE, 740, 0, TRUE, FALSE, FALSE, 'Dairy, Gluten, Eggs, Tree Nuts'),
+(30, 7, 'Florida Key Lime Pie', 'Tangy and creamy custard made with authentic Key lime juice in a buttery graham crust, topped with freshly whipped chantilly cream.', 8.50, TRUE, 510, 0, TRUE, FALSE, FALSE, 'Dairy, Gluten, Eggs'),
+
+-- 8. Beverages & Hand-Spun Shakes
+(31, 8, 'Hand-Spun Madagascar Vanilla Shake', 'Premium vanilla bean ice cream spun thick with cold whole milk, crowned with whipped cream and a Luxardo cherry.', 7.00, TRUE, 520, 0, TRUE, FALSE, TRUE, 'Dairy'),
+(32, 8, 'Oreo Cookies & Cream Milkshake', 'Creamy vanilla ice cream blended with crushed chocolate Oreo cookies, Hershey''s syrup drizzle, and whipped cream.', 7.50, TRUE, 640, 0, TRUE, FALSE, FALSE, 'Dairy, Gluten'),
+(33, 8, 'Southern Sweet Brewed Iced Tea', 'Slow-brewed Orange Pekoe black tea sweetened southern-style with pure cane sugar and fresh lemon slices.', 4.00, TRUE, 120, 0, TRUE, TRUE, TRUE, 'None'),
+(34, 8, 'Fresh-Squeezed Lemonade', 'Hand-squeezed Meyer lemons with pure cane sugar and spring water served over crushed ice with mint.', 4.50, TRUE, 140, 0, TRUE, TRUE, TRUE, 'None'),
+(35, 8, 'Draft Craft Root Beer Float', 'Old-fashioned draft sarsaparilla root beer poured over two large scoops of velvety vanilla bean ice cream.', 6.50, TRUE, 360, 0, TRUE, FALSE, TRUE, 'Dairy');
+
+-- Sync serial sequence for menu_items
+SELECT setval(pg_get_serial_sequence('menu_items', 'item_id'), COALESCE(MAX(item_id), 1)) FROM menu_items;
+

@@ -15,6 +15,7 @@ from eatwithai.db import (
     get_dining_duration,
     get_available_tables,
     check_psycopg2_installed,
+    get_menu_items,
 )
 
 
@@ -72,6 +73,8 @@ def init_db_main():
                 "dining_rules",
                 "bookings",
                 "booking_tables",
+                "menu_categories",
+                "menu_items",
             ]
             print("\n--- Record Counts by Table ---")
             for table in tables:
@@ -89,6 +92,11 @@ def init_db_main():
             for row in cur.fetchall():
                 print(f"  [{row['area']:12s}] {row['name']} (seats: {row['seats_min']}-{row['seats_max']}) | Combinable with: {row['combinable_with']}")
 
+            print("\n--- American Food Menu Categories ---")
+            cur.execute("SELECT category_id, name, description FROM menu_categories ORDER BY display_order;")
+            for row in cur.fetchall():
+                print(f"  [{row['category_id']}] {row['name']} - {row['description']}")
+
         print("\n--- Python Logic Verification ---")
         test_party = 4
         duration = get_dining_duration(conn, test_party)
@@ -99,7 +107,11 @@ def init_db_main():
         avail = get_available_tables(conn, test_start, test_end, area="indoor")
         print(f"  * Available indoor tables on {test_start.strftime('%Y-%m-%d %H:%M')}: {[t['name'] for t in avail]}")
 
+        burgers = get_menu_items(conn, category="Burgers")
+        print(f"  * Menu query ('Burgers'): {[b['name'] for b in burgers]}")
+
     print("\n[SUCCESS] PostgreSQL setup is complete and ready for Python development.\n")
+
 
 
 def status_main():
