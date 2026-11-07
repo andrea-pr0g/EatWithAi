@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
-import ChatbotSection from './components/ChatbotSection';
+import ExperienceSection from './components/ExperienceSection';
 import MenuSection from './components/MenuSection';
 import ZonesSection from './components/ZonesSection';
 import ScheduleSection from './components/ScheduleSection';
@@ -56,6 +56,7 @@ export default function App() {
   const [statusInfo, setStatusInfo] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Fetch restaurant live status & schedule on load
   useEffect(() => {
@@ -69,6 +70,9 @@ export default function App() {
   const handleSendMessage = useCallback(async (userText) => {
     if (!userText.trim() || isStreaming) return;
 
+    // Automatically reveal the chat widget in the bottom-right if not already open
+    setIsChatOpen(true);
+
     // 1. Add user message
     setMessages(prev => [
       ...prev,
@@ -77,12 +81,6 @@ export default function App() {
     ]);
     setIsStreaming(true);
     setGuardrailStatus(null);
-
-    // Scroll smoothly to chatbot section if not already in view
-    const chatEl = document.getElementById('chatbot');
-    if (chatEl && window.scrollY < 200) {
-      chatEl.scrollIntoView({ behavior: 'smooth' });
-    }
 
     try {
       const response = await fetch('/api/chat/stream', {
@@ -199,9 +197,7 @@ export default function App() {
       
       {/* Navigation Bar */}
       <Navbar 
-        onOpenChat={() => {
-          document.getElementById('chatbot')?.scrollIntoView({ behavior: 'smooth' });
-        }}
+        onOpenChat={() => setIsChatOpen(true)}
         statusInfo={statusInfo}
         soundEnabled={soundEnabled}
         setSoundEnabled={setSoundEnabled}
@@ -212,23 +208,20 @@ export default function App() {
         
         {/* Hero Section */}
         <Hero 
-          onSendMessage={handleSendMessage}
           onOpenWizard={() => setWizardOpen(true)}
+          onOpenChat={() => setIsChatOpen(true)}
         />
 
-        {/* The Core Chatbot Terminal Section */}
-        <ChatbotSection 
-          messages={messages}
-          isStreaming={isStreaming}
-          onSendMessage={handleSendMessage}
-          onResetChat={handleResetChat}
-          guardrailStatus={guardrailStatus}
-          soundEnabled={soundEnabled}
+        {/* The Orbital Dining Experience */}
+        <ExperienceSection 
+          onOpenChat={() => setIsChatOpen(true)}
         />
 
         {/* Database-Grounded Menu Section */}
         <MenuSection 
-          onAskAboutDish={handleSendMessage}
+          onAskAboutDish={(dishPrompt) => {
+            handleSendMessage(dishPrompt);
+          }}
         />
 
         {/* Station Dining Zones Section */}
@@ -247,21 +240,30 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <Footer />
+      <Footer 
+        onOpenChat={() => setIsChatOpen(true)}
+      />
 
-      {/* Floating Chat Widget (bottom-right orb for quick chat anywhere on page) */}
+      {/* Dedicated Floating Chat Widget in the bottom-right corner */}
       <FloatingChatWidget 
         messages={messages}
         isStreaming={isStreaming}
         onSendMessage={handleSendMessage}
         onResetChat={handleResetChat}
+        isOpen={isChatOpen}
+        setIsOpen={setIsChatOpen}
+        guardrailStatus={guardrailStatus}
+        soundEnabled={soundEnabled}
+        setSoundEnabled={setSoundEnabled}
       />
 
       {/* Visual Reservation Wizard Modal */}
       <ReservationWizardModal 
         isOpen={wizardOpen}
         onClose={() => setWizardOpen(false)}
-        onHandoffToChat={handleSendMessage}
+        onHandoffToChat={(prompt) => {
+          handleSendMessage(prompt);
+        }}
       />
 
     </div>

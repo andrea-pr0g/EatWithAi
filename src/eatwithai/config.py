@@ -30,7 +30,7 @@ else:
     ENV_PATH = PROJECT_ROOT / ".env"
 
 
-def load_env_file(env_file: Path = ENV_PATH) -> None:
+def load_env_file(env_file: Path = ENV_PATH, override: bool = True) -> None:
     """
     Loads key=value pairs from .env into os.environ.
     Uses python-dotenv if installed, otherwise uses a native fallback parser.
@@ -40,7 +40,7 @@ def load_env_file(env_file: Path = ENV_PATH) -> None:
 
     try:
         from dotenv import load_dotenv
-        load_dotenv(env_file)
+        load_dotenv(env_file, override=override)
     except ImportError:
         # Built-in lightweight fallback parser
         with open(env_file, "r", encoding="utf-8") as f:
@@ -51,12 +51,15 @@ def load_env_file(env_file: Path = ENV_PATH) -> None:
                 key, val = line.split("=", 1)
                 key = key.strip()
                 val = val.strip().strip("'\"")
-                if key not in os.environ:
+                if override or key not in os.environ:
                     os.environ[key] = val
 
 
+# Alias for backwards compatibility / shorthand
+load_env = load_env_file
+
 # Automatically load environment variables upon import
-load_env_file()
+load_env_file(override=True)
 
 
 def get_db_config() -> Dict[str, Any]:

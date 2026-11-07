@@ -1,35 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Bot, 
-  Sparkles, 
   Calendar, 
-  ShieldCheck, 
-  ChevronRight, 
-  Orbit, 
-  ArrowRight,
-  Flame,
-  Award
+  UtensilsCrossed,
+  ArrowRight
 } from 'lucide-react';
 
-export default function Hero({ onSendMessage, onOpenWizard }) {
-  const [quickInput, setQuickInput] = useState('');
-
-  const handleQuickSubmit = (e) => {
-    e.preventDefault();
-    if (!quickInput.trim()) return;
-    onSendMessage(quickInput.trim());
-    setQuickInput('');
-  };
-
-  const samplePrompts = [
-    "Book a table for 2 tonight at 19:30",
-    "Show me the USDA Prime Ribeye Steak",
-    "Is the Covered Terrace available Friday?",
-    "What are your opening hours on weekends?"
-  ];
-
+export default function Hero({ onOpenWizard, onOpenChat }) {
   return (
-    <section className="relative min-h-[92vh] flex items-center justify-center pt-24 pb-16 overflow-hidden cosmic-stars">
+    <section className="relative min-h-[90vh] flex items-center justify-center pt-24 pb-16 overflow-hidden cosmic-stars">
       {/* Background Graphic & Dark Cosmic Gradient Overlays */}
       <div className="absolute inset-0 z-0">
         <img 
@@ -45,10 +24,10 @@ export default function Hero({ onSendMessage, onOpenWizard }) {
         
         {/* Orbital Station Badge */}
         <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full glass-panel border border-cyan-500/30 text-cyan-300 text-xs sm:text-sm font-mono mb-8 shadow-neon-cyan animate-float-slow">
-          <Orbit className="w-4 h-4 text-cyan-400 animate-spin" style={{ animationDuration: '10s' }} />
+          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
           <span>ORBITAL PLATFORM 1 • EARTH ELEVATION 408 KM</span>
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-          <span className="text-slate-300">GEMINI 3.1 AI RESERVATION AGENT ACTIVE</span>
+          <span className="text-slate-300">GEMINI 3.1 AI HOST ACTIVE</span>
         </div>
 
         {/* Main Hero Headline */}
@@ -63,68 +42,41 @@ export default function Hero({ onSendMessage, onOpenWizard }) {
         <p className="max-w-3xl mx-auto text-base sm:text-lg md:text-xl text-slate-300 font-light mb-10 leading-relaxed">
           Welcome to <span className="text-white font-medium">EatWithAi</span>, the world’s first orbital restaurant. 
           Indulge in authentic <span className="text-cyan-300 font-medium">USDA Prime steaks</span>, 
-          wood-smoked <span className="text-violet-300 font-medium">Texas BBQ</span>, and handcrafted burgers 
-          while viewing the blue marble below. Managed by an intelligent Gemini reservation concierge.
+          wood-smoked <span className="text-violet-300 font-medium">Texas BBQ</span>, and handcrafted smash burgers 
+          while gazing down at planet Earth from 408 km above.
         </p>
 
-        {/* Interactive Quick AI Prompt Bar */}
-        <div className="max-w-2xl mx-auto mb-6">
-          <form 
-            onSubmit={handleQuickSubmit}
-            className="relative flex items-center p-2 rounded-2xl glass-panel border border-cyan-500/40 shadow-cosmic-card focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/30 transition-all"
-          >
-            <div className="pl-3 pr-2 text-cyan-400">
-              <Bot className="w-6 h-6 animate-pulse" />
-            </div>
-            <input 
-              type="text"
-              value={quickInput}
-              onChange={(e) => setQuickInput(e.target.value)}
-              placeholder="Ask the AI Host anything... (e.g. 'Table for 4 this Saturday at 8 PM')"
-              className="w-full bg-transparent border-none text-slate-100 placeholder-slate-400 text-sm sm:text-base focus:outline-none focus:ring-0 py-2"
-            />
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 hover:from-cyan-400 hover:to-violet-500 text-white font-medium text-sm transition-all shadow-neon-cyan shrink-0"
-            >
-              <span>Ask Host</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
-
-        {/* Quick Suggestion Chips */}
-        <div className="flex flex-wrap items-center justify-center gap-2 max-w-3xl mx-auto mb-12">
-          <span className="text-xs text-slate-400 font-mono flex items-center gap-1 mr-1">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            Quick Prompts:
-          </span>
-          {samplePrompts.map((prompt, idx) => (
-            <button
-              key={idx}
-              onClick={() => onSendMessage(prompt)}
-              className="text-xs px-3.5 py-1.5 rounded-full bg-cosmos-800/80 hover:bg-cosmos-700/90 text-slate-300 hover:text-cyan-300 border border-white/10 hover:border-cyan-500/40 transition-all duration-200"
-            >
-              "{prompt}"
-            </button>
-          ))}
-        </div>
-
-        {/* Primary CTA Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-          <a
-            href="#chatbot"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-base font-semibold text-white bg-gradient-to-r from-cyan-500 via-sky-500 to-violet-600 hover:opacity-95 shadow-neon-cyan transition-all transform hover:-translate-y-0.5"
-          >
-            <Bot className="w-5 h-5" />
-            Chat with Gemini Concierge
-          </a>
+        {/* Primary Call-to-Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10 max-w-xl mx-auto">
           <button
             onClick={onOpenWizard}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-base font-semibold text-slate-200 glass-card hover:bg-white/10 border border-white/15 transition-all transform hover:-translate-y-0.5"
+            className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-base font-semibold text-white bg-gradient-to-r from-cyan-500 via-sky-500 to-violet-600 hover:opacity-95 shadow-neon-cyan transition-all transform hover:-translate-y-0.5 active:translate-y-0"
           >
-            <Calendar className="w-5 h-5 text-cyan-400" />
-            Direct Visual Booking
+            <Calendar className="w-5 h-5" />
+            <span>Book a Table Now</span>
+          </button>
+          
+          <a
+            href="#menu"
+            className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-base font-semibold text-slate-200 glass-card hover:bg-white/10 border border-white/15 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+          >
+            <UtensilsCrossed className="w-5 h-5 text-cyan-400" />
+            <span>Explore Menu</span>
+          </a>
+        </div>
+
+        {/* Single Bot Concierge Beacon Hint */}
+        <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full glass-card border border-white/10 text-xs text-slate-300 mb-14 hover:border-cyan-500/30 transition-colors">
+          <div className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center">
+            <Bot className="w-3.5 h-3.5" />
+          </div>
+          <span>Have questions about dishes or tables? Talk to our AI Concierge using the beacon in the bottom-right corner.</span>
+          <button
+            onClick={onOpenChat}
+            className="text-cyan-400 hover:text-cyan-300 font-medium font-mono text-[11px] underline flex items-center gap-0.5 ml-1"
+          >
+            <span>Open Chat</span>
+            <ArrowRight className="w-3 h-3" />
           </button>
         </div>
 

@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   Bot, 
-  Calendar, 
   UtensilsCrossed, 
   Layers, 
   Clock, 
   Menu as MenuIcon, 
   X, 
-  Compass,
-  Volume2,
-  VolumeX
+  Volume2, 
+  VolumeX, 
+  Orbit 
 } from 'lucide-react';
 
 export default function Navbar({ onOpenChat, statusInfo, soundEnabled, setSoundEnabled }) {
@@ -29,7 +28,7 @@ export default function Navbar({ onOpenChat, statusInfo, soundEnabled, setSoundE
   const shiftName = statusInfo?.status?.shift?.name || 'Dinner Service';
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+    <header className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
       scrolled 
         ? 'bg-cosmos-950/85 backdrop-blur-md border-b border-white/10 shadow-2xl py-3' 
         : 'bg-transparent py-5'
@@ -45,7 +44,7 @@ export default function Navbar({ onOpenChat, statusInfo, soundEnabled, setSoundE
               </div>
               <span className="absolute -top-1 -right-1 flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-400"></span>
               </span>
             </div>
             <div>
@@ -67,11 +66,11 @@ export default function Navbar({ onOpenChat, statusInfo, soundEnabled, setSoundE
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-8">
             <a 
-              href="#chatbot" 
+              href="#experience" 
               className="text-sm font-medium text-slate-300 hover:text-cyan-400 transition-colors flex items-center gap-1.5"
             >
-              <Bot className="w-4 h-4 text-cyan-400" />
-              AI Concierge
+              <Orbit className="w-4 h-4 text-cyan-400" />
+              Experience
             </a>
             <a 
               href="#menu" 
@@ -107,13 +106,13 @@ export default function Navbar({ onOpenChat, statusInfo, soundEnabled, setSoundE
               {soundEnabled ? <Volume2 className="w-4 h-4 text-cyan-400" /> : <VolumeX className="w-4 h-4" />}
             </button>
 
-            {/* Launch AI Concierge Button */}
+            {/* Launch AI Concierge Button (Opens bottom-right widget) */}
             <button
               onClick={onOpenChat}
               className="relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-cyan-600 to-violet-600 hover:from-cyan-500 hover:to-violet-500 shadow-neon-cyan hover:shadow-neon-violet transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
             >
               <Bot className="w-4 h-4 animate-bounce" />
-              <span>Launch Gemini Concierge</span>
+              <span>AI Concierge</span>
             </button>
           </div>
 
@@ -136,12 +135,12 @@ export default function Navbar({ onOpenChat, statusInfo, soundEnabled, setSoundE
         <div className="md:hidden glass-panel border-b border-white/10 px-4 pt-4 pb-6 mt-3 space-y-4 animate-fadeIn">
           <nav className="flex flex-col gap-3">
             <a 
-              href="#chatbot" 
+              href="#experience" 
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-3 p-3 rounded-lg bg-cosmos-800/50 text-slate-200"
             >
-              <Bot className="w-5 h-5 text-cyan-400" />
-              AI Reservation Concierge
+              <Orbit className="w-5 h-5 text-cyan-400" />
+              The Orbital Experience
             </a>
             <a 
               href="#menu" 
@@ -177,7 +176,7 @@ export default function Navbar({ onOpenChat, statusInfo, soundEnabled, setSoundE
             className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-violet-600 text-white font-medium flex items-center justify-center gap-2 shadow-neon-cyan"
           >
             <Bot className="w-5 h-5" />
-            Launch Gemini Concierge
+            <span>Open AI Concierge (Bottom Right)</span>
           </button>
         </div>
       )}

@@ -2,13 +2,10 @@ import React from 'react';
 import { 
   Sparkles, 
   Bot, 
-  Orbit, 
-  ShieldCheck, 
-  Compass, 
-  Heart
+  ShieldCheck 
 } from 'lucide-react';
 
-export default function Footer() {
+export default function Footer({ onOpenChat }) {
   return (
     <footer className="relative bg-cosmos-950 border-t border-white/10 pt-16 pb-12 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -44,10 +41,37 @@ export default function Footer() {
               Orbital Station
             </h4>
             <ul className="space-y-2 text-sm text-slate-400">
-              <li><a href="#chatbot" className="hover:text-cyan-400 transition-colors">Gemini AI Concierge</a></li>
-              <li><a href="#menu" className="hover:text-cyan-400 transition-colors">Menu</a></li>
-              <li><a href="#zones" className="hover:text-cyan-400 transition-colors">Dining Zones & Tables</a></li>
-              <li><a href="#schedule" className="hover:text-cyan-400 transition-colors">Flight Schedule & Shifts</a></li>
+              <li>
+                <a href="#experience" className="hover:text-cyan-400 transition-colors">
+                  The Orbital Experience
+                </a>
+              </li>
+              <li>
+                <a href="#menu" className="hover:text-cyan-400 transition-colors">
+                  Galactic Menu
+                </a>
+              </li>
+              <li>
+                <a href="#zones" className="hover:text-cyan-400 transition-colors">
+                  Dining Zones & Tables
+                </a>
+              </li>
+              <li>
+                <a href="#schedule" className="hover:text-cyan-400 transition-colors">
+                  Flight Schedule & Shifts
+                </a>
+              </li>
+              {onOpenChat && (
+                <li>
+                  <button 
+                    onClick={onOpenChat}
+                    className="hover:text-cyan-400 transition-colors text-left flex items-center gap-1.5 text-cyan-300 font-mono text-xs pt-1"
+                  >
+                    <Bot className="w-3.5 h-3.5" />
+                    <span>Launch AI Concierge Beacon</span>
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
 
@@ -80,7 +104,7 @@ export default function Footer() {
 
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-500">
-          <p>© {new Date().getFullYear()} EatWithAi Orbital Gastronomy. All cosmic rights reserved.</p>
+          <p>© 2026 EatWithAi Orbital Gastronomy. All cosmic rights reserved.</p>
           <p className="flex items-center gap-1">
             <span>Powered by</span>
             <span className="text-cyan-400 font-semibold">Gemini AI</span>
