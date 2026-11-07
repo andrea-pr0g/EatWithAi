@@ -91,5 +91,5 @@ def get_gemini_config() -> Dict[str, str]:
     """
     return {
         "api_key": os.getenv("GEMINI_API_KEY", "").strip(),
-        "model": os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip(),
+        "model": os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite").strip(),
     }

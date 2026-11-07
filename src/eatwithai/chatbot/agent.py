@@ -6,7 +6,7 @@ Features:
 - Strict Data / Instruction separation using boundary tags.
 - Mandatory Confirmation Barrier before database modifications (create/cancel reservations).
 - Built-in input sanitization and heuristic attack rejection.
-- Compatible with Google GenAI SDK (gemini-2.5-flash / gemini-2.0-flash / gemini-3.1-flash-lite).
+- Compatible with Google GenAI SDK (gemini-3.1-flash-lite / gemini-2.5-flash / gemini-2.0-flash).
 - Interactive CLI for testing and terminal chat.
 """
 
