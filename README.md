@@ -4,7 +4,8 @@ A complete, production-grade restaurant reservation system featuring a PostgreSQ
 
 ---
 
-<img width="1440" height="900" alt="Screenshot 2026-10-18 alle 18 02 44" src="https://github.com/user-attachments/assets/bbab47c4-f36f-4960-bb88-da9b5cf4da92" />
+<img width="1440" height="812" alt="Screenshot 2026-11-07 alle 12 19 17" src="https://github.com/user-attachments/assets/49ed410c-a2d0-4717-add3-17e99d5c1dbe" />
+
 
 ## 📁 Project Structure
 
