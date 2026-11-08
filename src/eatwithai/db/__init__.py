@@ -3,7 +3,12 @@ Database package for EatWithAi.
 Provides connection utilities and data repository functions.
 """
 
-from eatwithai.db.connection import check_psycopg2_installed, get_connection
+from eatwithai.db.connection import (
+    ManagedConnection,
+    check_psycopg2_installed,
+    get_connection,
+    transaction,
+)
 from eatwithai.db.repository import (
     init_db,
     seed_db,
@@ -12,6 +17,7 @@ from eatwithai.db.repository import (
     get_dining_duration,
     create_customer,
     create_booking,
+    create_customer_and_booking,
     get_available_tables,
     get_menu_categories,
     get_menu_items,
@@ -20,8 +26,10 @@ from eatwithai.db.repository import (
 )
 
 __all__ = [
+    "ManagedConnection",
     "check_psycopg2_installed",
     "get_connection",
+    "transaction",
     "init_db",
     "seed_db",
     "update_tables_occupancy",
@@ -29,6 +37,7 @@ __all__ = [
     "get_dining_duration",
     "create_customer",
     "create_booking",
+    "create_customer_and_booking",
     "get_available_tables",
     "get_menu_categories",
     "get_menu_items",

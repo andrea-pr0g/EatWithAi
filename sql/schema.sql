@@ -181,6 +181,103 @@ FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
 -- ----------------------------------------------------------------------------
+-- Trigger Functions: Prevent overlapping active bookings on the same table
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION check_booking_overlap()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_start_time TIMESTAMPTZ;
+    v_end_time   TIMESTAMPTZ;
+    v_status     VARCHAR(20);
+    v_conflict   UUID;
+BEGIN
+    -- Lock the target table row to serialize concurrent booking attempts on this table
+    PERFORM 1 FROM tables WHERE table_id = NEW.table_id FOR UPDATE;
+
+    SELECT start_time, end_time, status
+    INTO v_start_time, v_end_time, v_status
+    FROM bookings
+    WHERE booking_id = NEW.booking_id;
+
+    -- Cancelled or no_show bookings do not occupy tables
+    IF v_status IS NULL OR v_status IN ('cancelled', 'no_show') THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT b.booking_id
+    INTO v_conflict
+    FROM booking_tables bt
+    JOIN bookings b ON bt.booking_id = b.booking_id
+    WHERE bt.table_id = NEW.table_id
+      AND bt.booking_id <> NEW.booking_id
+      AND b.status NOT IN ('cancelled', 'no_show')
+      AND b.start_time < v_end_time
+      AND b.end_time > v_start_time
+    LIMIT 1;
+
+    IF v_conflict IS NOT NULL THEN
+        RAISE EXCEPTION 'Table % is already booked during % to % (conflicts with booking %)',
+            NEW.table_id, v_start_time, v_end_time, v_conflict
+            USING ERRCODE = 'exclusion_violation';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_prevent_booking_overlap ON booking_tables;
+CREATE TRIGGER trg_prevent_booking_overlap
+BEFORE INSERT OR UPDATE ON booking_tables
+FOR EACH ROW
+EXECUTE FUNCTION check_booking_overlap();
+
+CREATE OR REPLACE FUNCTION check_booking_time_update_overlap()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_conflict_table   INTEGER;
+    v_conflict_booking UUID;
+BEGIN
+    IF NEW.status IN ('cancelled', 'no_show') THEN
+        RETURN NEW;
+    END IF;
+
+    -- Lock all tables associated with this booking in deterministic order
+    PERFORM 1
+    FROM tables t
+    JOIN booking_tables bt ON bt.table_id = t.table_id
+    WHERE bt.booking_id = NEW.booking_id
+    ORDER BY t.table_id ASC
+    FOR UPDATE;
+
+    SELECT bt_other.table_id, b_other.booking_id
+    INTO v_conflict_table, v_conflict_booking
+    FROM booking_tables bt_self
+    JOIN booking_tables bt_other ON bt_self.table_id = bt_other.table_id
+    JOIN bookings b_other ON bt_other.booking_id = b_other.booking_id
+    WHERE bt_self.booking_id = NEW.booking_id
+      AND bt_other.booking_id <> NEW.booking_id
+      AND b_other.status NOT IN ('cancelled', 'no_show')
+      AND b_other.start_time < NEW.end_time
+      AND b_other.end_time > NEW.start_time
+    LIMIT 1;
+
+    IF v_conflict_booking IS NOT NULL THEN
+        RAISE EXCEPTION 'Booking % conflicts with existing booking % on table %',
+            NEW.booking_id, v_conflict_booking, v_conflict_table
+            USING ERRCODE = 'exclusion_violation';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_prevent_booking_update_overlap ON bookings;
+CREATE TRIGGER trg_prevent_booking_update_overlap
+BEFORE UPDATE OF start_time, end_time, status ON bookings
+FOR EACH ROW
+EXECUTE FUNCTION check_booking_time_update_overlap();
+
+-- ----------------------------------------------------------------------------
 -- Views
 -- ----------------------------------------------------------------------------
 

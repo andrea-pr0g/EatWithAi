@@ -54,10 +54,10 @@ def init_db_main():
 
     with conn:
         print("  * Initializing schema (sql/schema.sql)...")
-        init_db()
+        init_db(conn=conn)
 
         print("  * Seeding sample data (sql/seed_data.sql)...")
-        seed_db()
+        seed_db(conn=conn)
 
         print("\n" + "=" * 65)
         print(" DATABASE INITIALIZATION & SEEDING COMPLETED SUCCESSFULLY ")

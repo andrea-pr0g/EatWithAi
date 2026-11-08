@@ -304,6 +304,88 @@ def get_dining_duration_for_party(party_size: int) -> Dict[str, Any]:
 # Tool 3: Check Table Availability
 # ============================================================================
 
+def _query_available_tables(
+    cur: Any,
+    party_size: int,
+    start_dt: datetime,
+    end_dt: datetime,
+    area: Optional[str] = None,
+    for_update: bool = False,
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Queries available single tables and adjacent combinable table pairs within an active cursor.
+    When `for_update=True`, acquires row-level FOR UPDATE locks on candidate tables in
+    ascending `table_id` order first to prevent concurrent double-booking race conditions.
+    """
+    if for_update:
+        # Lock candidate active tables in deterministic table_id order to serialize concurrent bookings
+        # (including combinable pairs) without deadlocks.
+        cur.execute("SELECT table_id FROM tables WHERE active = TRUE ORDER BY table_id ASC FOR UPDATE;")
+
+    # 1. Find active single tables capable of seating the party
+    # where table is NOT currently booked in this time interval
+    query_single = """
+        SELECT t.table_id, t.name, t.seats_min, t.seats_max, t.area
+        FROM tables t
+        WHERE t.active = TRUE
+          AND t.seats_max >= %s
+          AND t.table_id NOT IN (
+              SELECT bt.table_id
+              FROM booking_tables bt
+              JOIN bookings b ON bt.booking_id = b.booking_id
+              WHERE b.status NOT IN ('cancelled', 'no_show')
+                AND b.start_time < %s
+                AND b.end_time > %s
+          )
+    """
+    params: List[Any] = [party_size, end_dt, start_dt]
+    if area:
+        query_single += " AND t.area = %s"
+        params.append(area.lower())
+
+    # Sort by best fit: minimum wasted capacity first
+    query_single += " ORDER BY t.seats_max ASC, t.name ASC;"
+
+    cur.execute(query_single, params)
+    single_tables = [dict(row) for row in cur.fetchall()]
+
+    # 2. Check adjacent combinable table pairs
+    query_combos = """
+        SELECT 
+            t1.table_id AS table1_id, t1.name AS table1_name, t1.seats_max AS table1_seats, t1.area AS area,
+            t2.table_id AS table2_id, t2.name AS table2_name, t2.seats_max AS table2_seats,
+            (t1.seats_max + t2.seats_max) AS combined_capacity
+        FROM table_combinations tc
+        JOIN tables t1 ON tc.table_id = t1.table_id
+        JOIN tables t2 ON tc.combinable_with_table_id = t2.table_id
+        WHERE t1.active = TRUE AND t2.active = TRUE
+          AND (t1.seats_max + t2.seats_max) >= %s
+          AND t1.table_id < t2.table_id -- avoid duplicate mirrored pairs
+          AND t1.table_id NOT IN (
+              SELECT bt.table_id FROM booking_tables bt
+              JOIN bookings b ON bt.booking_id = b.booking_id
+              WHERE b.status NOT IN ('cancelled', 'no_show')
+                AND b.start_time < %s AND b.end_time > %s
+          )
+          AND t2.table_id NOT IN (
+              SELECT bt.table_id FROM booking_tables bt
+              JOIN bookings b ON bt.booking_id = b.booking_id
+              WHERE b.status NOT IN ('cancelled', 'no_show')
+                AND b.start_time < %s AND b.end_time > %s
+          )
+    """
+    combo_params: List[Any] = [party_size, end_dt, start_dt, end_dt, start_dt]
+    if area:
+        query_combos += " AND t1.area = %s"
+        combo_params.append(area.lower())
+
+    query_combos += " ORDER BY combined_capacity ASC;"
+    cur.execute(query_combos, combo_params)
+    combinable_options = [dict(row) for row in cur.fetchall()]
+
+    return single_tables, combinable_options
+
+
 @json_safe_tool
 def check_table_availability(
     date_str: str,
@@ -345,68 +427,14 @@ def check_table_availability(
         end_dt = start_dt + timedelta(minutes=duration_mins)
 
         with conn.cursor() as cur:
-            # 2. Find active single tables capable of seating the party
-            # where table is NOT currently booked in this time interval
-            query_single = """
-                SELECT t.table_id, t.name, t.seats_min, t.seats_max, t.area
-                FROM tables t
-                WHERE t.active = TRUE
-                  AND t.seats_max >= %s
-                  AND t.table_id NOT IN (
-                      SELECT bt.table_id
-                      FROM booking_tables bt
-                      JOIN bookings b ON bt.booking_id = b.booking_id
-                      WHERE b.status NOT IN ('cancelled', 'no_show')
-                        AND b.start_time < %s
-                        AND b.end_time > %s
-                  )
-            """
-            params: List[Any] = [party_size, end_dt, start_dt]
-            if area:
-                query_single += " AND t.area = %s"
-                params.append(area.lower())
-
-            # Sort by best fit: minimum wasted capacity first
-            query_single += " ORDER BY t.seats_max ASC, t.name ASC;"
-
-            cur.execute(query_single, params)
-            single_tables = [dict(row) for row in cur.fetchall()]
-
-            # 3. If needed, check adjacent combinable table pairs
-            # (e.g. for larger parties or when individual tables are booked)
-            combinable_options: List[Dict[str, Any]] = []
-            query_combos = """
-                SELECT 
-                    t1.table_id AS table1_id, t1.name AS table1_name, t1.seats_max AS table1_seats, t1.area AS area,
-                    t2.table_id AS table2_id, t2.name AS table2_name, t2.seats_max AS table2_seats,
-                    (t1.seats_max + t2.seats_max) AS combined_capacity
-                FROM table_combinations tc
-                JOIN tables t1 ON tc.table_id = t1.table_id
-                JOIN tables t2 ON tc.combinable_with_table_id = t2.table_id
-                WHERE t1.active = TRUE AND t2.active = TRUE
-                  AND (t1.seats_max + t2.seats_max) >= %s
-                  AND t1.table_id < t2.table_id -- avoid duplicate mirrored pairs
-                  AND t1.table_id NOT IN (
-                      SELECT bt.table_id FROM booking_tables bt
-                      JOIN bookings b ON bt.booking_id = b.booking_id
-                      WHERE b.status NOT IN ('cancelled', 'no_show')
-                        AND b.start_time < %s AND b.end_time > %s
-                  )
-                  AND t2.table_id NOT IN (
-                      SELECT bt.table_id FROM booking_tables bt
-                      JOIN bookings b ON bt.booking_id = b.booking_id
-                      WHERE b.status NOT IN ('cancelled', 'no_show')
-                        AND b.start_time < %s AND b.end_time > %s
-                  )
-            """
-            combo_params: List[Any] = [party_size, end_dt, start_dt, end_dt, start_dt]
-            if area:
-                query_combos += " AND t1.area = %s"
-                combo_params.append(area.lower())
-
-            query_combos += " ORDER BY combined_capacity ASC;"
-            cur.execute(query_combos, combo_params)
-            combinable_options = [dict(row) for row in cur.fetchall()]
+            single_tables, combinable_options = _query_available_tables(
+                cur,
+                party_size=party_size,
+                start_dt=start_dt,
+                end_dt=end_dt,
+                area=area,
+                for_update=False,
+            )
 
     is_available = len(single_tables) > 0 or len(combinable_options) > 0
 
@@ -752,40 +780,54 @@ def create_booking_reservation(
     Returns:
         dict: Booking confirmation with booking_id, table names, and timings.
     """
-    # Check availability
-    avail = check_table_availability(date_str, time_str, party_size, area=area)
-    if not avail["is_available"]:
+    # 1. Verify restaurant is open for the requested date and time
+    status = check_restaurant_status(date_str, time_str)
+    if not status["is_open"]:
         return {
             "success": False,
             "booking_id": None,
-            "message": f"Reservation failed: {avail['message']}"
-        }
-
-    # Select best table(s)
-    table_ids: List[int] = []
-    table_names: List[str] = []
-
-    if avail["single_tables"]:
-        chosen = avail["single_tables"][0]
-        table_ids.append(chosen["table_id"])
-        table_names.append(chosen["name"])
-    elif avail["combinable_options"]:
-        chosen = avail["combinable_options"][0]
-        table_ids.extend([chosen["table1_id"], chosen["table2_id"]])
-        table_names.extend([chosen["table1_name"], chosen["table2_name"]])
-    else:
-        return {
-            "success": False,
-            "booking_id": None,
-            "message": "No suitable tables found."
+            "message": f"Reservation failed: Cannot book: {status['message']}"
         }
 
     start_dt = _parse_date_and_time(date_str, time_str)
-    duration = avail["duration_minutes"]
-    end_dt = start_dt + timedelta(minutes=duration)
 
+    # 2. Execute table lock, availability check, customer lookup/insert, booking insert,
+    #    and occupancy sync inside a single atomic transaction.
     with get_connection() as conn:
+        duration = get_dining_duration(conn, party_size)
+        end_dt = start_dt + timedelta(minutes=duration)
+
         with conn.cursor() as cur:
+            single_tables, combinable_options = _query_available_tables(
+                cur,
+                party_size=party_size,
+                start_dt=start_dt,
+                end_dt=end_dt,
+                area=area,
+                for_update=True,
+            )
+
+            table_ids: List[int] = []
+            table_names: List[str] = []
+
+            if single_tables:
+                chosen = single_tables[0]
+                table_ids.append(chosen["table_id"])
+                table_names.append(chosen["name"])
+            elif combinable_options:
+                chosen = combinable_options[0]
+                table_ids.extend([chosen["table1_id"], chosen["table2_id"]])
+                table_names.extend([chosen["table1_name"], chosen["table2_name"]])
+            else:
+                return {
+                    "success": False,
+                    "booking_id": None,
+                    "message": (
+                        f"Reservation failed: Sorry, no tables are available for a party of "
+                        f"{party_size} on {date_str} at {time_str}."
+                    )
+                }
+
             # Look up or create customer by phone or email
             cur.execute(
                 """
@@ -830,8 +872,8 @@ def create_booking_reservation(
                 )
             )
 
-            # Map booking tables
-            for tid in table_ids:
+            # Map booking tables in deterministic table_id order
+            for tid in sorted(table_ids):
                 cur.execute(
                     """
                     INSERT INTO booking_tables (booking_id, table_id)
@@ -840,8 +882,8 @@ def create_booking_reservation(
                     (booking_id, tid)
                 )
 
-        conn.commit()
-        update_tables_occupancy(conn)
+        # Update table occupancy within the same atomic transaction before committing
+        update_tables_occupancy(conn, commit=False)
 
     tables_str = ", ".join(table_names)
     return {
@@ -887,7 +929,8 @@ def cancel_booking_reservation(booking_id: str, phone_or_email: str) -> Dict[str
                 SELECT b.booking_id, b.status, c.phone, c.email, b.start_time
                 FROM bookings b
                 JOIN customers c ON b.customer_id = c.customer_id
-                WHERE b.booking_id = %s;
+                WHERE b.booking_id = %s
+                FOR UPDATE OF b;
                 """,
                 (booking_id.strip(),)
             )
@@ -922,8 +965,7 @@ def cancel_booking_reservation(booking_id: str, phone_or_email: str) -> Dict[str
                 """,
                 (booking_id.strip(),)
             )
-        conn.commit()
-        update_tables_occupancy(conn)
+        update_tables_occupancy(conn, commit=False)
 
     return {
         "success": True,
