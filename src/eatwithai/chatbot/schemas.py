@@ -2,6 +2,8 @@
 OpenAI & LLM Function Calling Schema Definitions for EatWithAi Chatbot.
 """
 
+from eatwithai.models import BookingValidation, BookingRequest, BookingInput, VALID_ZONES
+
 CHATBOT_TOOL_DEFINITIONS = [
     {
         "type": "function",
@@ -84,10 +86,10 @@ CHATBOT_TOOL_DEFINITIONS = [
                     "date_str": {"type": "string", "description": "Reservation date in YYYY-MM-DD format"},
                     "time_str": {"type": "string", "description": "Reservation time in HH:MM format (24-hour clock)"},
                     "party_size": {"type": "integer", "description": "Number of guests"},
-                    "area": {"type": "string", "enum": ["indoor", "terrace", "bar", "private_room"]},
-                    "special_requests": {"type": "string", "description": "Dietary requirements or special notes"}
+                    "area": {"type": "string", "enum": ["indoor", "terrace", "bar", "private_room"], "description": "Dining zone ('indoor', 'terrace', 'bar', 'private_room')"},
+                    "special_requests": {"type": "string", "description": "Optional dietary requirements or special notes"}
                 },
-                "required": ["name", "surname", "phone", "date_str", "time_str", "party_size"]
+                "required": ["name", "surname", "phone", "date_str", "time_str", "party_size", "area"]
             }
         }
     },

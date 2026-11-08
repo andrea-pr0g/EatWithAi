@@ -6,6 +6,7 @@ with strict prompt injection defense and automated availability scheduling.
 """
 
 from eatwithai import config, models, security, db, chatbot
+from eatwithai.models import BookingValidation, BookingRequest, BookingInput
 from eatwithai.chatbot.agent import GeminiRestaurantChatbot
 from eatwithai.db.connection import get_connection
 
@@ -18,6 +19,9 @@ __all__ = [
     "security",
     "db",
     "chatbot",
+    "BookingValidation",
+    "BookingRequest",
+    "BookingInput",
     "GeminiRestaurantChatbot",
     "get_connection",
 ]

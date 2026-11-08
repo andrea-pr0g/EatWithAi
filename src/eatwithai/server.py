@@ -20,7 +20,7 @@ from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Ensure src is on sys.path
 SRC_DIR = Path(__file__).resolve().parent.parent
@@ -29,6 +29,7 @@ if str(SRC_DIR) not in sys.path:
 
 from eatwithai.chatbot.agent import GeminiRestaurantChatbot
 from eatwithai.chatbot import tools
+from eatwithai.models import BookingValidation, BookingRequest, BookingInput
 from eatwithai.security import check_prompt_injection
 from eatwithai.db import get_connection, update_tables_occupancy, get_tables_status
 
@@ -121,15 +122,32 @@ class AvailabilityRequest(BaseModel):
     party_size: int
     zone: Optional[str] = None
 
-class ReservationRequest(BaseModel):
-    customer_name: str
-    customer_phone: str
-    customer_email: Optional[str] = None
-    party_size: int
-    date: str
-    time: str
-    zone_preference: Optional[str] = None
-    special_requests: Optional[str] = None
+class ReservationRequest(BookingValidation):
+    """
+    Pydantic reservation validation schema validating name, surname, phone,
+    email (optional), party_size, time, day, zone, and special_requests (optional).
+    Also supports legacy frontend field aliases (customer_name, customer_phone, etc.).
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        if "customer_name" in normalized:
+            cust_name = str(normalized.pop("customer_name") or "").strip()
+            if "name" not in normalized and "surname" not in normalized and cust_name:
+                parts = cust_name.split(" ", 1)
+                normalized["name"] = parts[0]
+                normalized["surname"] = parts[1] if len(parts) > 1 else "Traveler"
+        if "customer_phone" in normalized:
+            val = normalized.pop("customer_phone")
+            normalized.setdefault("phone", val)
+        if "customer_email" in normalized:
+            val = normalized.pop("customer_email")
+            normalized.setdefault("email", val)
+        return normalized
 
 class CancellationRequest(BaseModel):
     booking_id: str
@@ -271,21 +289,17 @@ def check_availability(req: AvailabilityRequest):
 
 @app.post("/api/reserve")
 def direct_reserve(req: ReservationRequest):
-    """Direct reservation submission (for visual booking form)."""
+    """Direct reservation submission validated with Pydantic (BookingValidation)."""
     try:
-        parts = req.customer_name.strip().split(" ", 1)
-        first_name = parts[0]
-        surname = parts[1] if len(parts) > 1 else "Traveler"
-
         result = tools.create_booking_reservation(
-            name=first_name,
-            surname=surname,
-            phone=req.customer_phone,
-            date_str=req.date,
+            name=req.name,
+            surname=req.surname,
+            phone=req.phone,
+            date_str=req.day,
             time_str=req.time,
             party_size=req.party_size,
-            email=req.customer_email,
-            area=req.zone_preference,
+            email=req.email,
+            area=req.zone,
             special_requests=req.special_requests,
         )
         return result

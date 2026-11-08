@@ -81,6 +81,25 @@ class TestChatbotTools(unittest.TestCase):
             self.skipTest(f"Database not available: {e}")
 
 
+    def test_create_booking_reservation_pydantic_validation(self):
+        from eatwithai.chatbot.tools import create_booking_reservation
+
+        # Invalid email and zone should fail Pydantic validation immediately
+        res = create_booking_reservation(
+            name="Mario",
+            surname="Rossi",
+            phone="+39 333 1234567",
+            email="not-an-email",
+            date_str="2026-10-20",
+            time_str="19:30",
+            party_size=4,
+            area="invalid_zone",
+        )
+        self.assertFalse(res["success"])
+        self.assertIsNone(res["booking_id"])
+        self.assertIn("Reservation failed:", res["message"])
+
+
 if __name__ == "__main__":
     unittest.main()
 

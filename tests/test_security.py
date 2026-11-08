@@ -88,6 +88,59 @@ class TestSecurity(unittest.TestCase):
         )
         self.assertFalse(valid)
 
+        # Full booking data with email, time, day, zone, special_requests
+        valid, err = validate_booking_data(
+            name="Luca",
+            surname="Rossi",
+            phone="+39 340 1234567",
+            email="luca@example.com",
+            party_size=4,
+            time="20:00",
+            day="2026-10-25",
+            zone="terrace",
+            special_requests="Anniversary dinner",
+        )
+        self.assertTrue(valid)
+        self.assertIsNone(err)
+
+        # Invalid zone, email, day, time
+        self.assertFalse(
+            validate_booking_data(
+                name="Luca",
+                surname="Rossi",
+                phone="+39 340 1234567",
+                party_size=4,
+                zone="moon_base",
+            )[0]
+        )
+        self.assertFalse(
+            validate_booking_data(
+                name="Luca",
+                surname="Rossi",
+                phone="+39 340 1234567",
+                email="invalid-email",
+                party_size=4,
+            )[0]
+        )
+        self.assertFalse(
+            validate_booking_data(
+                name="Luca",
+                surname="Rossi",
+                phone="+39 340 1234567",
+                party_size=4,
+                day="2026-13-45",
+            )[0]
+        )
+        self.assertFalse(
+            validate_booking_data(
+                name="Luca",
+                surname="Rossi",
+                phone="+39 340 1234567",
+                party_size=4,
+                time="99:99",
+            )[0]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

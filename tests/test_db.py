@@ -214,10 +214,11 @@ class TestDatabaseIntegration(unittest.TestCase):
 
         def attempt_booking(idx: int):
             uid = uuid.uuid4().hex[:8]
+            phone_digits = f"+1555{uuid.uuid4().int % 10000000:07d}"
             return create_booking_reservation(
                 name=f"Concurrent{idx}",
                 surname="Guest",
-                phone=f"+1555{uid}",
+                phone=phone_digits,
                 email=f"conc_{idx}_{uid}@example.com",
                 date_str=target_date,
                 time_str=target_time,

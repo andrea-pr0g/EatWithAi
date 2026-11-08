@@ -27,6 +27,7 @@ export default function ReservationWizardModal({ isOpen, onClose, onHandoffToCha
   
   // Customer info
   const [name, setName] = useState('');
+  const [surname, setSurname] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
@@ -71,8 +72,8 @@ export default function ReservationWizardModal({ isOpen, onClose, onHandoffToCha
 
   const handleConfirmReservation = async (e) => {
     e.preventDefault();
-    if (!name.trim() || !phone.trim()) {
-      setErrorMessage('Full name and phone number are required.');
+    if (!name.trim() || !surname.trim() || !phone.trim()) {
+      setErrorMessage('First name, surname, and phone number are required.');
       return;
     }
 
@@ -83,18 +84,19 @@ export default function ReservationWizardModal({ isOpen, onClose, onHandoffToCha
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer_name: name,
-          customer_phone: phone,
-          customer_email: email || undefined,
+          name: name.trim(),
+          surname: surname.trim(),
+          phone: phone.trim(),
+          email: email.trim() || undefined,
           party_size: Number(partySize),
-          date,
+          day: date,
           time,
-          zone_preference: zone,
-          special_requests: specialRequests || undefined,
+          zone,
+          special_requests: specialRequests.trim() || undefined,
         })
       });
       const data = await res.json();
-      if (data.booking_id) {
+      if (res.ok && data.booking_id) {
         setBookingConfirmation(data);
         setStep(3);
         // Trigger celebratory confetti
@@ -105,7 +107,10 @@ export default function ReservationWizardModal({ isOpen, onClose, onHandoffToCha
           colors: ['#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b']
         });
       } else {
-        setErrorMessage(data.message || 'Could not complete reservation.');
+        const detailMsg = Array.isArray(data.detail)
+          ? data.detail.map((d) => d.msg).join('; ')
+          : data.detail || data.message;
+        setErrorMessage(detailMsg || 'Could not complete reservation.');
       }
     } catch (err) {
       setErrorMessage('Reservation failed: ' + err.message);
@@ -116,8 +121,13 @@ export default function ReservationWizardModal({ isOpen, onClose, onHandoffToCha
 
   const handleHandoff = () => {
     onClose();
-    const prompt = `I'd like to book a table for ${partySize} guests on ${date} at ${time} in the ${zone} area. My name is ${name || 'Traveler'} and phone is ${phone || '+39 333 0000000'}.`;
-    onHandoffToChat(prompt);
+    const details = [`I'd like to book a table for ${partySize} guests on ${date} at ${time} in the ${zone} area.`];
+    const fullName = [name.trim(), surname.trim()].filter(Boolean).join(' ');
+    if (fullName) details.push(`My name is ${fullName}.`);
+    if (phone.trim()) details.push(`My phone is ${phone.trim()}.`);
+    if (email.trim()) details.push(`My email is ${email.trim()}.`);
+    if (specialRequests.trim()) details.push(`Special requests: ${specialRequests.trim()}.`);
+    onHandoffToChat(details.join(' '));
   };
 
   return (
@@ -262,16 +272,30 @@ export default function ReservationWizardModal({ isOpen, onClose, onHandoffToCha
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-mono text-slate-400 block mb-1">Full Name *</label>
+                  <label className="text-xs font-mono text-slate-400 block mb-1">First Name *</label>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Commander Shepard"
+                    placeholder="e.g. John"
                     className="w-full bg-cosmos-900 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400"
                   />
                 </div>
+                <div>
+                  <label className="text-xs font-mono text-slate-400 block mb-1">Surname *</label>
+                  <input
+                    type="text"
+                    required
+                    value={surname}
+                    onChange={(e) => setSurname(e.target.value)}
+                    placeholder="e.g. Shepard"
+                    className="w-full bg-cosmos-900 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-mono text-slate-400 block mb-1">Phone Number *</label>
                   <input
@@ -283,17 +307,16 @@ export default function ReservationWizardModal({ isOpen, onClose, onHandoffToCha
                     className="w-full bg-cosmos-900 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-mono text-slate-400 block mb-1">Email (Optional)</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="traveler@orbit.com"
-                  className="w-full bg-cosmos-900 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400"
-                />
+                <div>
+                  <label className="text-xs font-mono text-slate-400 block mb-1">Email (Optional)</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="traveler@orbit.com"
+                    className="w-full bg-cosmos-900 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
               </div>
 
               <div>

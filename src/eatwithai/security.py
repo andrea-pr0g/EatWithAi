@@ -95,38 +95,50 @@ def wrap_user_message_with_boundary(text: str) -> str:
     )
 
 
+from pydantic import ValidationError
+from eatwithai.models import BookingValidation, BookingRequest, BookingInput, VALID_ZONES
+
+
 def validate_booking_data(
     name: str,
     surname: str,
     phone: str,
     party_size: int,
-    special_requests: Optional[str] = None
+    special_requests: Optional[str] = None,
+    email: Optional[str] = None,
+    time: str = "19:30",
+    day: str = "2026-10-20",
+    zone: str = "indoor",
+    **kwargs,
 ) -> Tuple[bool, Optional[str]]:
     """
-    Rigorous application-layer validation of reservation parameters before execution.
-    Prevents malformed data or injected payloads in table/name fields.
+    Rigorous application-layer validation of reservation parameters using Pydantic (`BookingValidation`).
+    Validates name, surname, phone, email (optional), party_size, time, day, zone,
+    and special_requests (optional).
     """
-    # Name validation
-    if not (1 <= len(name.strip()) <= 50):
-        return False, "Customer first name must be between 1 and 50 characters."
-    if not (1 <= len(surname.strip()) <= 50):
-        return False, "Customer surname must be between 1 and 50 characters."
+    resolved_time = kwargs.pop("time_str", time)
+    resolved_day = kwargs.pop("date_str", kwargs.pop("date", day))
+    resolved_zone = kwargs.pop("area", kwargs.pop("zone_preference", zone))
+    resolved_special = kwargs.pop("special_request", special_requests)
 
-    # Phone validation (must contain at least 7 digits)
-    digits_only = re.sub(r"\D", "", phone)
-    if len(digits_only) < 7 or len(digits_only) > 16:
-        return False, "Please provide a valid contact phone number with at least 7 digits."
+    try:
+        BookingValidation(
+            name=name,
+            surname=surname,
+            phone=phone,
+            email=email,
+            party_size=party_size,
+            time=resolved_time,
+            day=resolved_day,
+            zone=resolved_zone,
+            special_requests=resolved_special,
+            **kwargs,
+        )
+        return True, None
+    except ValidationError as exc:
+        first_err = exc.errors()[0] if exc.errors() else {"msg": str(exc)}
+        msg = first_err.get("msg", str(exc))
+        if msg.startswith("Value error, "):
+            msg = msg[len("Value error, "):]
+        return False, msg
 
-    # Party size validation
-    if not (1 <= party_size <= 30):
-        return False, "Party size must be between 1 and 30 guests."
-
-    # Special requests payload inspection
-    if special_requests:
-        if len(special_requests) > 200:
-            return False, "Special requests must not exceed 200 characters."
-        flagged, reason = check_prompt_injection(special_requests)
-        if flagged:
-            return False, "Special requests contain invalid or suspicious instructions."
-
-    return True, None

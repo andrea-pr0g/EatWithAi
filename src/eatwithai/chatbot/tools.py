@@ -22,6 +22,8 @@ from functools import wraps
 from typing import Optional, List, Dict, Any
 import uuid
 
+from pydantic import ValidationError
+
 from eatwithai.db import (
     get_connection,
     get_dining_duration,
@@ -32,6 +34,7 @@ from eatwithai.db import (
     update_tables_occupancy,
     get_tables_status,
 )
+from eatwithai.models import BookingValidation, BookingRequest, BookingInput, VALID_ZONES
 from eatwithai.chatbot.schemas import CHATBOT_TOOL_DEFINITIONS
 
 
@@ -756,11 +759,12 @@ def create_booking_reservation(
     time_str: str,
     party_size: int,
     email: Optional[str] = None,
-    area: Optional[str] = None,
+    area: Optional[str] = "indoor",
     special_requests: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     End-to-end booking tool for the chatbot:
+      0. Validates all booking inputs via Pydantic (BookingValidation).
       1. Verifies restaurant is open and table is available.
       2. Finds or creates the customer record.
       3. Allocates the best-fitting table (or joined tables).
@@ -774,12 +778,48 @@ def create_booking_reservation(
         time_str: Time ('HH:MM').
         party_size: Number of guests.
         email: Optional customer email.
-        area: Optional preferred area ('indoor', 'terrace', 'bar', 'private_room').
+        area: Dining zone ('indoor', 'terrace', 'bar', 'private_room').
         special_requests: Optional dietary requests or seating notes.
 
     Returns:
         dict: Booking confirmation with booking_id, table names, and timings.
     """
+    # 0. Validate booking fields with Pydantic
+    try:
+        validated = BookingValidation(
+            name=name,
+            surname=surname,
+            phone=phone,
+            email=email,
+            party_size=party_size,
+            time=time_str,
+            day=date_str,
+            zone=area,
+            special_requests=special_requests,
+        )
+    except ValidationError as exc:
+        messages = []
+        for err in exc.errors():
+            msg = err.get("msg", str(err))
+            if msg.startswith("Value error, "):
+                msg = msg[len("Value error, "):]
+            messages.append(msg)
+        return {
+            "success": False,
+            "booking_id": None,
+            "message": f"Reservation failed: {'; '.join(messages)}",
+        }
+
+    name = validated.name
+    surname = validated.surname
+    phone = validated.phone
+    email = validated.email
+    party_size = validated.party_size
+    date_str = validated.day
+    time_str = validated.time
+    area = validated.zone
+    special_requests = validated.special_requests
+
     # 1. Verify restaurant is open for the requested date and time
     status = check_restaurant_status(date_str, time_str)
     if not status["is_open"]:
@@ -835,7 +875,7 @@ def create_booking_reservation(
                 WHERE phone = %s OR (email IS NOT NULL AND email = %s)
                 LIMIT 1;
                 """,
-                (phone.strip(), email.strip() if email else None)
+                (phone, email)
             )
             cust = cur.fetchone()
 
@@ -848,7 +888,7 @@ def create_booking_reservation(
                     INSERT INTO customers (customer_id, name, surname, phone, email)
                     VALUES (%s, %s, %s, %s, %s);
                     """,
-                    (customer_id, name.strip(), surname.strip(), phone.strip(), email.strip() if email else None)
+                    (customer_id, name, surname, phone, email)
                 )
 
             # Insert booking
@@ -890,12 +930,27 @@ def create_booking_reservation(
         "success": True,
         "booking_id": booking_id,
         "customer_name": f"{name} {surname}",
+        "name": name,
+        "surname": surname,
+        "phone": phone,
+        "email": email,
         "party_size": party_size,
         "date": date_str,
+        "day": date_str,
+        "time": time_str,
         "start_time": time_str,
         "end_time": end_dt.strftime("%H:%M"),
+        "zone": area,
+        "special_requests": special_requests,
         "duration_minutes": duration,
         "tables": table_names,
+        "customer": {
+            "name": f"{name} {surname}",
+            "first_name": name,
+            "surname": surname,
+            "phone": phone,
+            "email": email,
+        },
         "message": (
             f"Reservation confirmed! Booking reference: {booking_id[:8]}... "
             f"Table: {tables_str} on {date_str} at {time_str} for {party_size} guests "
@@ -1187,10 +1242,10 @@ CHATBOT_TOOL_DEFINITIONS = [
                     "date_str": {"type": "string", "description": "Reservation date in YYYY-MM-DD format"},
                     "time_str": {"type": "string", "description": "Reservation time in HH:MM format (24-hour clock)"},
                     "party_size": {"type": "integer", "description": "Number of guests"},
-                    "area": {"type": "string", "enum": ["indoor", "terrace", "bar", "private_room"]},
-                    "special_requests": {"type": "string", "description": "Dietary requirements or special notes"}
+                    "area": {"type": "string", "enum": ["indoor", "terrace", "bar", "private_room"], "description": "Dining zone ('indoor', 'terrace', 'bar', 'private_room')"},
+                    "special_requests": {"type": "string", "description": "Optional dietary requirements or special notes"}
                 },
-                "required": ["name", "surname", "phone", "date_str", "time_str", "party_size"]
+                "required": ["name", "surname", "phone", "date_str", "time_str", "party_size", "area"]
             }
         }
     },
